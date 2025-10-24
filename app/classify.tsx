@@ -1,7 +1,15 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React from "react";
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import React, { useRef, useState } from "react";
+import {
+  Image,
+  Modal,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const colors = {
   bg: "#f6f7f6",
@@ -12,6 +20,42 @@ const colors = {
 };
 
 export default function Index() {
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<"back" | "front">("back");
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const cameraRef = useRef<CameraView>(null);
+
+  if (!permission) return null;
+
+  if (!permission.granted) {
+    return (
+      <SafeAreaView
+        style={[s.container, { justifyContent: "center", alignItems: "center" }]}
+      >
+        <Text style={s.title}>Nie je povolený prístup ku kamere 📷</Text>
+        <TouchableOpacity style={s.btn} onPress={requestPermission}>
+          <Text style={s.btnText}>Povoliť kameru</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  async function takePhoto() {
+    try {
+      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.7 });
+      if (photo?.uri) {
+        setPhotoUri(photo.uri);
+      }
+    } catch (e) {
+      console.warn("Chyba pri fotení:", e);
+    }
+  }
+
+  function flipCamera() {
+    setFacing((f) => (f === "back" ? "front" : "back"));
+  }
+
   return (
     <SafeAreaView style={s.container}>
       {/* Hero */}
@@ -23,19 +67,73 @@ export default function Index() {
 
       {/* Grid kariet */}
       <View style={s.grid}>
-        <Card icon="lightbulb-on-outline" label="Tipy na triedenie" onPress={() => alert("Čoskoro")} />
-        <Card icon="calendar" label="Kalendár zvozu" onPress={() => alert("Čoskoro")} />
-        <Card icon="trophy-variant" label="Odznaky a odmeny" onPress={() => alert("Čoskoro")} />
-        
+        <Card
+          icon="lightbulb-on-outline"
+          label="Tipy na triedenie"
+          onPress={() => alert("Čoskoro")}
+        />
+        <Card
+          icon="calendar"
+          label="Kalendár zvozu"
+          onPress={() => alert("Čoskoro")}
+        />
+        <Card
+          icon="trophy-variant"
+          label="Odznaky a odmeny"
+          onPress={() => alert("Čoskoro")}
+        />
       </View>
 
       {/* FAB – rýchla akcia „Rozpoznať odpad“ */}
-      <TouchableOpacity style={s.fab} onPress={() => router.push("/classify")}>
+      <TouchableOpacity style={s.fab} onPress={() => setCameraOpen(true)}>
         <MaterialCommunityIcons name="camera" size={24} color="#fff" />
         <Text style={s.fabText}>Rozpoznať</Text>
       </TouchableOpacity>
 
       <Text style={s.footer}>Verzia 1.0 • TUKE 2025</Text>
+
+      {/* --- MODÁLNE OKNO KAMERY --- */}
+      <Modal visible={cameraOpen} animationType="slide" onRequestClose={() => setCameraOpen(false)}>
+        <View style={s.cameraWrap}>
+          {photoUri ? (
+            // Náhľad po odfotení
+            <>
+              <Image source={{ uri: photoUri }} style={{ flex: 1 }} resizeMode="cover" />
+              <View style={s.previewBar}>
+                <TouchableOpacity
+                  style={[s.smallBtn, { backgroundColor: "#ffffff" }]}
+                  onPress={() => setPhotoUri(null)}
+                >
+                  <Text style={{ color: "#1b5e20", fontWeight: "700" }}>Znova</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.smallBtn, { backgroundColor: "#1b5e20" }]}
+                  onPress={() => setCameraOpen(false)}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "700" }}>Použiť</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <CameraView ref={cameraRef} style={s.camera} facing={facing} />
+
+              {/* Zavrieť */}
+              <TouchableOpacity style={s.closeBtn} onPress={() => setCameraOpen(false)}>
+                <MaterialCommunityIcons name="close" size={28} color="#fff" />
+              </TouchableOpacity>
+
+              {/* Prepnúť kameru */}
+              <TouchableOpacity style={s.flipBtn} onPress={flipCamera}>
+                <MaterialCommunityIcons name="camera-switch" size={26} color="#fff" />
+              </TouchableOpacity>
+
+              {/* Spúšť */}
+              <TouchableOpacity style={s.shutter} onPress={takePhoto} />
+            </>
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -82,15 +180,21 @@ const s = StyleSheet.create({
     shadowRadius: 7,
     elevation: 4,
   },
-  cardText: { marginTop: 8, fontSize: 14, fontWeight: "600", color: colors.text, textAlign: "center" },
+  cardText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.text,
+    textAlign: "center",
+  },
   fab: {
     position: "absolute",
-    bottom: 24,
+    bottom: 80,
     alignSelf: "center",
     flexDirection: "row",
     gap: 8,
     backgroundColor: "#1b5e20",
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 999,
     shadowColor: "#000",
@@ -99,6 +203,57 @@ const s = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
-  fabText: { color: "#fff", fontWeight: "700" },
+  fabText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   footer: { textAlign: "center", color: "#7b8", marginTop: 18, fontSize: 12 },
+  cameraWrap: { flex: 1, backgroundColor: "#000" },
+  camera: { flex: 1 },
+  closeBtn: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    padding: 8,
+    borderRadius: 30,
+  },
+  flipBtn: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    padding: 8,
+    borderRadius: 30,
+  },
+  shutter: {
+    position: "absolute",
+    bottom: 40,
+    alignSelf: "center",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#fff",
+    borderWidth: 4,
+    borderColor: "rgba(255,255,255,0.7)",
+  },
+  previewBar: {
+    position: "absolute",
+    bottom: 28,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    paddingHorizontal: 16,
+  },
+  smallBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  btn: {
+    backgroundColor: "#1b5e20",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  btnText: { color: "#fff", fontWeight: "700" },
 });
