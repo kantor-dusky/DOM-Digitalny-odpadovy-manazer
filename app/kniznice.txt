@@ -1,0 +1,9 @@
+npx expo install expo-camera 
+npx expo install expo-image-picker 
+npx expo install expo-router 
+npx expo install react-native-safe-area-context @expo/vector-icons 
+npx expo install react-native-reanimated 
+npx expo install react-native-gesture-handler
+npm install expo-location
+npx expo install react-native-maps
+npx expo install expo-location
