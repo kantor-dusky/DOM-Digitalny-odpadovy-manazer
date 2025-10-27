@@ -1,0 +1,49 @@
+CREATE TABLE hodnoty (
+    cislo     INTEGER PRIMARY KEY,
+    vysledok  TEXT NOT NULL
+);
+
+-- Plasty (1–7)
+INSERT INTO hodnoty (cislo, vysledok) VALUES
+(1,  'Plast: PET – polyetyléntereftalát (fľaše, obaly)'),
+(2,  'Plast: HDPE – vysokohustotný polyetylén (kanistre, fľaše)'),
+(3,  'Plast: PVC – polyvinylchlorid (rúry, fólie)'),
+(4,  'Plast: LDPE – nízkohustotný polyetylén (vrecúška, fólie)'),
+(5,  'Plast: PP – polypropylén (kelímky, vrchnáky)'),
+(6,  'Plast: PS – polystyrén (tácky, obaly)'),
+(7,  'Plast: O (OTHER) – ostatné/kompozity/bioplasty');
+
+-- Papier / kartón (20–22)
+INSERT INTO hodnoty (cislo, vysledok) VALUES
+(20, 'Papier/kartón: PAP 20 – vlnitá lepenka'),
+(21, 'Papier/kartón: PAP 21 – hladká lepenka'),
+(22, 'Papier: PAP 22 – papier');
+
+-- Kovy (40–41)
+INSERT INTO hodnoty (cislo, vysledok) VALUES
+(40, 'Kov: FE – oceľ/železo (plech)'),
+(41, 'Kov: ALU – hliník (alobal, viečka, plechovky)');
+
+-- Drevo (50)
+INSERT INTO hodnoty (cislo, vysledok) VALUES
+(50, 'Drevo: FOR – drevo');
+
+-- Textil (60)
+INSERT INTO hodnoty (cislo, vysledok) VALUES
+(60, 'Textil: TEX – textílie');
+
+-- Sklo (70–72)
+INSERT INTO hodnoty (cislo, vysledok) VALUES
+(70, 'Sklo: GL 70 – sklo (všeobecné)'),
+(71, 'Sklo: GL 71 – sklo (typ 1 / farba)'),
+(72, 'Sklo: GL 72 – sklo (typ 2 / farba)');
+
+-- Kompozity (papierové lamináty 81–84)
+INSERT INTO hodnoty (cislo, vysledok) VALUES
+(81, 'Kompozit: C/PAP 81 – papier/plast'),
+(82, 'Kompozit: C/PAP 82 – papier/hliník'),
+(83, 'Kompozit: C/PAP 83 – papier/kov'),
+(84, 'Kompozit: C/PAP 84 – papier/plast/hliník');
+
+-- Kontrola
+SELECT * FROM hodnoty ORDER BY cislo;
