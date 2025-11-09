@@ -4,3 +4,4 @@ npx ngrok config add-authtoken 35C2HVauMHrs0RR2CISLlPengNA_2basbi6VJtGVqASQCuUA2
 npx ngrok http 8000 
 python -m uvicorn api:app --reload --host 0.0.0.0 --port 8000
 npx expo start --tunnel
+pip install fastapi uvicorn pillow python-multipart
