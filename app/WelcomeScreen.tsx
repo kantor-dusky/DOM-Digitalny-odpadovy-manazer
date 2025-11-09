@@ -13,7 +13,7 @@ export default function WelcomeScreen() {
   return (
     <ImageBackground
       source={{
-       uri: "https://cdn.pixabay.com/photo/2020/04/01/09/29/recycle-4999993_1280.jpg", // ✅ Public Domain / Pixabay
+       uri: "https://cdn.pixabay.com/photo/2020/04/01/09/29/recycle-4999993_1280.jpg",
       }}
       style={styles.background}
       resizeMode="cover"
@@ -29,13 +29,30 @@ export default function WelcomeScreen() {
           Triediť odpad je jednoduché – rob to múdro, rob to ekologicky 🌱
         </Text>
 
-        <TouchableOpacity
-          style={styles.button}
-          activeOpacity={0.85}
-          onPress={() => router.push("/home")}
-        >
-          <Text style={styles.buttonText}>Pokračovať</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.buttonPrimary}
+            activeOpacity={0.85}
+            onPress={() => router.push("/login")}
+          >
+            <Text style={styles.buttonText}>Prihlásiť sa</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.buttonSecondary}
+            activeOpacity={0.85}
+            onPress={() => router.push("/register")}
+          >
+            <Text style={styles.buttonSecondaryText}>Registrovať sa</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/home")}
+            style={styles.skipButton}
+          >
+            <Text style={styles.skipText}>Preskočiť</Text>
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.footer}>© TUKE 2025 • verzia 1.0</Text>
       </View>
@@ -79,7 +96,12 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     maxWidth: 320,
   },
-  button: {
+  buttonContainer: {
+    width: "100%",
+    maxWidth: 320,
+    gap: 16,
+  },
+  buttonPrimary: {
     backgroundColor: "#00c853",
     paddingVertical: 14,
     paddingHorizontal: 50,
@@ -90,12 +112,39 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
   },
+  buttonSecondary: {
+    backgroundColor: "transparent",
+    paddingVertical: 14,
+    paddingHorizontal: 50,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: "#00c853",
+  },
   buttonText: {
     fontSize: 18,
     fontWeight: "700",
     color: "#fff",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    textAlign: "center",
+  },
+  buttonSecondaryText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#00c853",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    textAlign: "center",
+  },
+  skipButton: {
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  skipText: {
+    fontSize: 16,
+    color: "#dfe6e9",
+    textAlign: "center",
+    textDecorationLine: "underline",
   },
   footer: {
     position: "absolute",
