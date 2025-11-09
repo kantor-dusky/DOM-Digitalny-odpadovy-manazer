@@ -2,6 +2,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   Modal,
   SafeAreaView,
@@ -19,11 +21,18 @@ const colors = {
   shadow: "#000",
 };
 
+// TODO: nastav na svoju adresu (napr. z ngrok): https://abc123.ngrok.io/classify
+const API_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev/classify";
+
 export default function Index() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<"back" | "front">("back");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ code: number; result: string | null } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   const cameraRef = useRef<CameraView>(null);
 
   if (!permission) return null;
@@ -49,11 +58,50 @@ export default function Index() {
       }
     } catch (e) {
       console.warn("Chyba pri fotení:", e);
+      Alert.alert("Chyba", "Nepodarilo sa odfotiť obrázok.");
     }
   }
 
   function flipCamera() {
     setFacing((f) => (f === "back" ? "front" : "back"));
+  }
+
+  async function uploadToBackend() {
+    if (!photoUri) return;
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      setResult(null);
+
+      const form = new FormData();
+      form.append("file", {
+        uri: photoUri,
+        name: "photo.jpg",
+        type: "image/jpeg",
+      } as any);
+
+      const resp = await fetch(API_URL, {
+        method: "POST",
+        body: form,
+        // ZÁMERNE nenastavuj Content-Type, nech ho určí fetch (boundary)
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text();
+        throw new Error(`Server ${resp.status}: ${txt}`);
+      }
+
+      const data = await resp.json();
+      setResult(data); // { code, result }
+      // voliteľne: zavri modal po úspechu
+      setCameraOpen(false);
+      setPhotoUri(null);
+    } catch (e: any) {
+      setErrorMsg(e?.message ?? "Neznáma chyba pri odosielaní");
+      Alert.alert("Chyba", errorMsg ?? "Nepodarilo sa odoslať obrázok.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -84,6 +132,16 @@ export default function Index() {
         />
       </View>
 
+      {/* Výsledok poslednej klasifikácie */}
+      {result && (
+        <View style={s.resultBox}>
+          <Text style={s.resultTitle}>Výsledok klasifikácie</Text>
+          <Text style={s.resultLine}>EÚ kód: <Text style={s.bold}>{result.code}</Text></Text>
+          <Text style={s.resultLine}>DB: <Text style={s.bold}>{result.result ?? "– bez pravidla –"}</Text></Text>
+        </View>
+      )}
+      {errorMsg && <Text style={{ color: "crimson", marginTop: 8 }}>{errorMsg}</Text>}
+
       {/* FAB – rýchla akcia „Rozpoznať odpad“ */}
       <TouchableOpacity style={s.fab} onPress={() => setCameraOpen(true)}>
         <MaterialCommunityIcons name="camera" size={24} color="#fff" />
@@ -107,10 +165,18 @@ export default function Index() {
                   <Text style={{ color: "#1b5e20", fontWeight: "700" }}>Znova</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[s.smallBtn, { backgroundColor: "#1b5e20" }]}
-                  onPress={() => setCameraOpen(false)}
+                  style={[s.smallBtn, { backgroundColor: "#1b5e20", minWidth: 120, alignItems: "center" }]}
+                  onPress={uploadToBackend}
+                  disabled={loading}
                 >
-                  <Text style={{ color: "#fff", fontWeight: "700" }}>Použiť</Text>
+                  {loading ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <ActivityIndicator color="#fff" />
+                      <Text style={{ color: "#fff", fontWeight: "700" }}>Odosielam…</Text>
+                    </View>
+                  ) : (
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>Použiť</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </>
@@ -187,6 +253,21 @@ const s = StyleSheet.create({
     color: colors.text,
     textAlign: "center",
   },
+  resultBox: {
+    marginTop: 16,
+    backgroundColor: colors.card,
+    padding: 14,
+    borderRadius: 16,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  resultTitle: { color: colors.text, fontWeight: "800", fontSize: 16, marginBottom: 4 },
+  resultLine: { color: colors.text, fontSize: 14, marginTop: 2 },
+  bold: { fontWeight: "800" },
+
   fab: {
     position: "absolute",
     bottom: 80,
@@ -205,6 +286,7 @@ const s = StyleSheet.create({
   },
   fabText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   footer: { textAlign: "center", color: "#7b8", marginTop: 18, fontSize: 12 },
+
   cameraWrap: { flex: 1, backgroundColor: "#000" },
   camera: { flex: 1 },
   closeBtn: {
