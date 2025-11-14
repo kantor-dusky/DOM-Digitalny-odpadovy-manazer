@@ -2,6 +2,9 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, } from "react-native";
 
+// SEM DÁTE SVOJU NGROK URL
+const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
+
 export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -33,24 +36,41 @@ export default function RegisterScreen() {
 
     setLoading(true);
 
-    // Tu pridaj svoju logiku pre registráciu (API call, Firebase, atď.)
     try {
-      // Simulácia API callu
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Po úspešnej registrácii
-      Alert.alert(
-        "Úspech", 
-        "Registrácia bola úspešná! Teraz sa môžete prihlásiť.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/login")
-          }
-        ]
-      );
+      // Registrácia cez váš FastAPI backend
+      const response = await fetch(`${API_BASE_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Úspešná registrácia
+        Alert.alert(
+          "Úspech", 
+          "Registrácia bola úspešná! Teraz sa môžete prihlásiť.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.replace("/login")
+            }
+          ]
+        );
+      } else {
+        // Chyba z API
+        Alert.alert("Chyba", data.detail || "Registrácia zlyhala. Skúste znova.");
+      }
     } catch (error) {
-      Alert.alert("Chyba", "Registrácia zlyhala. Skúste znova.");
+      console.error("Registration error:", error);
+      Alert.alert("Chyba", "Nepodarilo sa pripojiť k serveru. Skontrolujte pripojenie.");
     } finally {
       setLoading(false);
     }
@@ -86,7 +106,7 @@ export default function RegisterScreen() {
                 <Text style={styles.label}>Celé meno</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Turbo Kokot"
+                  placeholder="Zadajte vaše meno"
                   placeholderTextColor="#999"
                   value={name}
                   onChangeText={setName}
@@ -160,6 +180,7 @@ export default function RegisterScreen() {
   );
 }
 
+// Štýly zostávajú rovnaké...
 const styles = StyleSheet.create({
   background: {
     flex: 1,
@@ -177,17 +198,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 32,
     paddingVertical: 60,
-  },
-  backButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    padding: 10,
-  },
-  backButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
   },
   logo: {
     fontSize: 52,
