@@ -2,6 +2,9 @@ import { router } from "expo-router";
 import React, { useState } from "react";
 import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, } from "react-native";
 
+// POUŽIJTE TU ISTÚ URL AKO V REGISTRÁCII
+const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
+
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,16 +24,38 @@ export default function LoginScreen() {
 
     setLoading(true);
 
-    // Tu pridaj svoju logiku pre prihlásenie (API call, Firebase, atď.)
     try {
-      // Simulácia API callu
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Po úspešnom prihlásení
-      Alert.alert("Úspech", "Prihlásenie bolo úspešné!");
-      router.replace("/home");
+      // API call pre prihlásenie
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Úspešné prihlásenie
+        Alert.alert("Úspech", "Prihlásenie bolo úspešné!");
+        
+        // Uložte si token pre budúce requesty
+        console.log("Access Token:", data.access_token);
+        console.log("User ID:", data.user_id);
+        
+        // Prechod na home screen
+        router.replace("/home");
+      } else {
+        // Chyba z API
+        Alert.alert("Chyba", data.detail || "Prihlásenie zlyhalo. Skúste znova.");
+      }
     } catch (error) {
-      Alert.alert("Chyba", "Prihlásenie zlyhalo. Skúste znova.");
+      console.error("Login error:", error);
+      Alert.alert("Chyba", "Nepodarilo sa pripojiť k serveru. Skontrolujte pripojenie.");
     } finally {
       setLoading(false);
     }
@@ -106,6 +131,13 @@ export default function LoginScreen() {
                   {loading ? "Prihlasovanie..." : "Prihlásiť sa"}
                 </Text>
               </TouchableOpacity>
+
+              <View style={styles.registerContainer}>
+                <Text style={styles.registerText}>Nemáte účet? </Text>
+                <TouchableOpacity onPress={() => router.push("/register")}>
+                  <Text style={styles.registerLink}>Zaregistrovať sa</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -131,17 +163,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 32,
     paddingVertical: 60,
-  },
-  backButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    padding: 10,
-  },
-  backButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
   },
   logo: {
     fontSize: 52,
@@ -202,6 +223,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 6,
     elevation: 6,
+    marginBottom: 20,
   },
   buttonDisabled: {
     backgroundColor: "#6c9a6f",
@@ -213,5 +235,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  registerContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  registerText: {
+    color: "#dfe6e9",
+    fontSize: 15,
+  },
+  registerLink: {
+    color: "#00c853",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
