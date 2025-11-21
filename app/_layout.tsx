@@ -8,12 +8,21 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <Stack
         screenOptions={({ route }) => ({
+          
           headerStyle: { backgroundColor: "#1b5e20" },
+          borderBottomLeftRadius: 26,
+          borderBottomRightRadius: 26,
           headerTintColor: "#fff",
           headerTitle: "Odpadový manažér",
           headerTitleStyle: { fontWeight: "700" },
+          headerTransparent: false,
+          headerShadowVisible: false,
+          headerBlurEffect: undefined,
+          headerBackTitle: "",
+          headerBackTitleVisible: false,
+          headerBackButtonMenuEnabled: false,
+          contentStyle: { backgroundColor: "#f5f5f5" },
           headerRight: () =>
-          
               <Link href="/profile" asChild>
                 <TouchableOpacity style={{ paddingHorizontal: 12 }}>
                   <MaterialCommunityIcons
@@ -27,7 +36,7 @@ export default function RootLayout() {
         })}
       >
         <Stack.Screen name="WelcomeScreen" options={{ headerShown: false }} />
-        <Stack.Screen name="home" options={{ title: "Domov" }} />
+        <Stack.Screen name="home" options={{ title: "Domov", headerLeft: () => null}} />
         <Stack.Screen name="profile" options={{ title: "Môj profil" }} />
       </Stack>
     </SafeAreaProvider>
