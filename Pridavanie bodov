@@ -1,0 +1,10 @@
+Sql kod> 
+ALTER TABLE users
+ADD COLUMN body INTEGER DEFAULT 0;
+
+prikaz pre novu kniznicu>
+npx expo install @react-native-async-storage/async-storage
+
+je potrebne updatnut co som naposledy upravoval, takyz: login.tsx, home.tsx, apy.py
+
+Body sa pridavaju ihned po kliknuti na ZISKAJ BODY
