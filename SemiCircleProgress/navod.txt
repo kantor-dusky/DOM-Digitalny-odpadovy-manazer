@@ -1,0 +1,7 @@
+SemiCircleProgress - dať do Odpadovy_manazer/components 
+npx expo install react-native-svg
+
+
+Badges - do priečinka assets/
+
+ostatné kódy by mali byť aktualizované už
