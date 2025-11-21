@@ -1,10 +1,12 @@
-// app/Home.tsx
 import { MaterialCommunityIcons as Icon, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState, useEffect } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SemiCircleProgress from "../components/SemiCircleProgress";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // Načítanie AsyncStorage
+
+const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
 
 const brand = {
   primary: "#0f3a22",
@@ -16,7 +18,58 @@ const brand = {
 };
 
 export default function Home() {
-  const points = 680;
+  // Stav pre body
+  const [points, setPoints] = useState<number>(0);
+
+  // Načítame body pri spustení aplikácie
+  useEffect(() => {
+    const loadPoints = async () => {
+      const storedPoints = await AsyncStorage.getItem("body");
+      if (storedPoints) {
+        setPoints(Number(storedPoints)); // Uložíme body do stavu
+      }
+    };
+
+    loadPoints();
+  }, []);
+
+  // Funkcia na získanie 100 bodov
+  const handleEarnPoints = async () => {
+    const newPoints = 100; // Pridáme 100 bodov
+
+    // Získame aktuálne body z AsyncStorage
+    const currentPoints = await AsyncStorage.getItem("body");
+    const totalPoints = currentPoints ? Number(currentPoints) + newPoints : newPoints;
+
+    // Uložíme nové body do AsyncStorage
+    await AsyncStorage.setItem("body", String(totalPoints));
+    await AsyncStorage.setItem("level", String(level)); // Uložíme level
+
+    // Pošleme nové body na server (do databázy)
+    const userId = await AsyncStorage.getItem("user_id");  // Načítame user_id
+    const token = await AsyncStorage.getItem("token");  // Načítame token pre autorizáciu
+
+    if (!userId || !token) {
+      Alert.alert("Chyba", "Nepodarilo sa načítať údaje používateľa.");
+      return;
+    }
+
+    // Pošleme nové body na server
+    await fetch(`${API_BASE_URL}/update-points`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,  // Posielame token pre autorizáciu
+      },
+      body: JSON.stringify({
+        user_id: userId,  // Posielame user_id na server
+        body: totalPoints,  // Pošleme nové body
+      }),
+    });
+
+    setPoints(totalPoints);  // Aktualizujeme body v aplikácii
+    Alert.alert("Úspech", `Získali ste ${newPoints} bodov!`);
+  };
   const step = 1000;
   const level = Math.floor(points / step) + 1;
   const nextLevelAt = level * step;
@@ -72,7 +125,8 @@ export default function Home() {
           <View style={s.heroActions}>
             <Pressable
               style={({ pressed }) => [s.pill, pressed && s.pillPressed]}
-              onPress={() => router.push("/missions")}
+              //onPress={() => router.push("/missions")}
+              onPress={handleEarnPoints}  // Pridáme 100 bodov po stlačení tlačidla
             >
               <MaterialIcons name="bolt" size={18} color="#013a20" />
               <Text style={s.pillText}>Získaj body</Text>
