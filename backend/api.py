@@ -101,7 +101,18 @@ def create_users_table():
                 if not name_column_exists:
                     cur.execute("ALTER TABLE users ADD COLUMN name VARCHAR(100)")
                     print("✅ Stĺpec name bol pridaný do tabuľky users")
-            
+
+                cur.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='users' AND column_name='body'
+                """)
+                xp_column_exists = cur.fetchone()
+
+                if not xp_column_exists:    
+                    cur.execute("ALTER TABLE users ADD COLUMN body INTEGER DEFAULT 0")    
+                    print("✅ Stĺpec body bol pridaný do tabuľky users")  
+
             conn.commit()
             print("✅ Tabuľka users je pripravená")
             
@@ -161,15 +172,16 @@ def register(user_data: UserRegister):
             # Vytvor nového používateľa
             hashed_password = hash_password(user_data.password)
             cur.execute(
-                "INSERT INTO users (name, email, password) VALUES (%s, %s, %s) RETURNING id",
-                (user_data.name, user_data.email, hashed_password)
+                "INSERT INTO users (name, email, password, body) VALUES (%s, %s, %s, %s) RETURNING id",
+                (user_data.name, user_data.email, hashed_password, 0)
             )
             user_id = cur.fetchone()[0]
             conn.commit()
 
             # Vytvor JWT token
             access_token = create_access_token({"user_id": user_id, "email": user_data.email})
-            
+            print("User data: {user}")
+
             return {
                 "message": "Registrácia bola úspešná",
                 "access_token": access_token,
@@ -197,35 +209,44 @@ def login(user_data: UserLogin):
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, email, password FROM users WHERE email = %s", (user_data.email,))
+            # Načítaj používateľa podľa emailu
+            cur.execute("SELECT id, name, email, password, body FROM users WHERE email = %s", (user_data.email,))
             user = cur.fetchone()
-            
+
             if not user:
                 raise HTTPException(status_code=400, detail="Nesprávny email alebo heslo")
-            
-            user_id, name, email, hashed_password = user
-            
+
+            # Skontrolujeme počet hodnôt, ktoré sme dostali z databázy
+            if len(user) == 5:
+                user_id, name, email, hashed_password, body = user
+            elif len(user) == 4:
+                # Ak body chýba, nastavíme ho na 0
+                user_id, name, email, hashed_password = user
+                body = 0  # Priradíme hodnotu 0, ak body neexistuje
+            else:
+                # Ak je počet hodnôt iný, vrátime chybu
+                raise HTTPException(status_code=500, detail="Nekonzistentné dáta v databáze")
+
             if not verify_password(user_data.password, hashed_password):
                 raise HTTPException(status_code=400, detail="Nesprávny email alebo heslo")
 
-            # Vytvor JWT token
             access_token = create_access_token({"user_id": user_id, "email": email})
-            
+
             return {
                 "message": "Prihlásenie úspešné",
                 "access_token": access_token,
                 "token_type": "bearer", 
                 "user_id": user_id,
-                "name": name
+                "name": name,
+                "body" : body  # Posielame správnu hodnotu body
             }
-    except HTTPException:
-        raise
     except Exception as e:
         print(f"Login error: {e}")
         raise HTTPException(status_code=500, detail="Interná chyba servera")
     finally:
         if conn:
             conn.close()
+
 
 @app.get("/users")
 def get_users():
@@ -234,7 +255,7 @@ def get_users():
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, email, created_at FROM users ORDER BY created_at DESC")
+            cur.execute("SELECT id, name, email, created_at, body FROM users ORDER BY created_at DESC")
             users = cur.fetchall()
             
             users_list = []
@@ -243,7 +264,8 @@ def get_users():
                     "id": user[0],
                     "name": user[1],
                     "email": user[2],
-                    "created_at": user[3]
+                    "created_at": user[3],
+                    "body" : user [4]
                 })
             
             return {"users": users_list}
@@ -253,6 +275,30 @@ def get_users():
     finally:
         if conn:
             conn.close()
+
+@app.post("/update-points")
+def update_points(user_data: dict):
+    user_id = user_data.get("user_id")
+    body = user_data.get("body")
+
+    if not user_id or body is None:
+        raise HTTPException(status_code=400, detail="Nesprávne údaje")
+
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            # Aktualizujeme body používateľa v databáze
+            cur.execute("UPDATE users SET body = %s WHERE id = %s", (body, user_id))
+            conn.commit()
+            return {"message": "Points updated successfully"}
+    except Exception as e:
+        print(f"Error updating points: {e}")
+        raise HTTPException(status_code=500, detail="Error updating points")
+    finally:
+        if conn:
+            conn.close()
+
 
 @app.post("/classify")
 async def classify(request: Request, file: UploadFile | None = File(None)):
