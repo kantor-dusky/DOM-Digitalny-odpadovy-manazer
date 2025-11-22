@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SemiCircleProgress from "../components/SemiCircleProgress";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // Načítanie AsyncStorage
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
 
@@ -18,68 +18,65 @@ const brand = {
 };
 
 export default function Home() {
-  // Stav pre body
-  const [points, setPoints] = useState<number>(0);
+  const [points, setPoints] = useState(0);
 
-  // Načítame body pri spustení aplikácie
+  // Načítanie bodov pri štarte
   useEffect(() => {
     const loadPoints = async () => {
       const storedPoints = await AsyncStorage.getItem("body");
       if (storedPoints) {
-        setPoints(Number(storedPoints)); // Uložíme body do stavu
+        setPoints(Number(storedPoints));
       }
     };
-
     loadPoints();
   }, []);
 
-  // Funkcia na získanie 100 bodov
+  // Výpočet levelu
+  const step = 1000;
+  const level = Math.floor(points / step) + 1;
+  const nextLevelAt = level * step;
+  const progress = Math.min(1, (points % step) / step);
+
+  // Uloženie levelu do AsyncStorage
+  useEffect(() => {
+    AsyncStorage.setItem("level", String(level));
+  }, [level]);
+
+  // +100 bodov
   const handleEarnPoints = async () => {
-    const newPoints = 100; // Pridáme 100 bodov
+    const newPoints = 100;
 
-    // Získame aktuálne body z AsyncStorage
-    const currentPoints = await AsyncStorage.getItem("body");
-    const totalPoints = currentPoints ? Number(currentPoints) + newPoints : newPoints;
+    const prev = await AsyncStorage.getItem("body");
+    const totalPoints = prev ? Number(prev) + newPoints : newPoints;
 
-    // Uložíme nové body do AsyncStorage
     await AsyncStorage.setItem("body", String(totalPoints));
-    await AsyncStorage.setItem("level", String(level)); // Uložíme level
 
-    // Pošleme nové body na server (do databázy)
-    const userId = await AsyncStorage.getItem("user_id");  // Načítame user_id
-    const token = await AsyncStorage.getItem("token");  // Načítame token pre autorizáciu
+    const userId = await AsyncStorage.getItem("user_id");
+    const token = await AsyncStorage.getItem("token");
 
     if (!userId || !token) {
       Alert.alert("Chyba", "Nepodarilo sa načítať údaje používateľa.");
       return;
     }
 
-    // Pošleme nové body na server
     await fetch(`${API_BASE_URL}/update-points`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,  // Posielame token pre autorizáciu
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        user_id: userId,  // Posielame user_id na server
-        body: totalPoints,  // Pošleme nové body
+        user_id: userId,
+        body: totalPoints,
       }),
     });
 
-    setPoints(totalPoints);  // Aktualizujeme body v aplikácii
+    setPoints(totalPoints);
     Alert.alert("Úspech", `Získali ste ${newPoints} bodov!`);
   };
-  const step = 1000;
-  const level = Math.floor(points / step) + 1;
-  const nextLevelAt = level * step;
-  const progress = Math.min(1, (points % step) / step);
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: brand.bg }}
-      edges={["bottom"]}>
-      
+    <SafeAreaView style={{ flex: 1, backgroundColor: brand.bg }} edges={["bottom"]}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -92,7 +89,7 @@ export default function Home() {
         bounces={false}
         overScrollMode="never"
       >
-        {/* === HERO s polkruhom === */}
+        {/* HERO */}
         <View style={s.hero}>
           <View style={s.heroTop}>
             <View style={s.levelBadge}>
@@ -106,14 +103,17 @@ export default function Home() {
             </Pressable>
           </View>
 
+          {/* Polkruh */}
           <View style={s.gaugeWrap}>
             <SemiCircleProgress
+              key={level}
               size={260}
               strokeWidth={18}
               progress={progress}
               labelTop="BODY"
               centerText={`Úroveň ${level}`}
               bottomText={`${points} / ${nextLevelAt}`}
+              level={level} // 🔥 odosielame level sem
               colors={{
                 track: "rgba(255,255,255,0.18)",
                 fill: brand.progress,
@@ -122,11 +122,11 @@ export default function Home() {
             />
           </View>
 
+          {/* Tlačidlá */}
           <View style={s.heroActions}>
             <Pressable
               style={({ pressed }) => [s.pill, pressed && s.pillPressed]}
-              //onPress={() => router.push("/missions")}
-              onPress={handleEarnPoints}  // Pridáme 100 bodov po stlačení tlačidla
+              onPress={handleEarnPoints}
             >
               <MaterialIcons name="bolt" size={18} color="#013a20" />
               <Text style={s.pillText}>Získaj body</Text>
@@ -142,50 +142,34 @@ export default function Home() {
           </View>
         </View>
 
-        {/* --- HLAVNÝ HEADER (ikonka + nadpis) --- */}
+        {/* HEADER */}
         <View style={s.header}>
           <Icon name="recycle" size={52} color={brand.accent} />
           <Text style={s.title}>Triediš? 👏</Text>
-          <Text style={s.subtitle}>
-            Vyber si, čo chceš dnes urobiť pre čistejšiu planétu 🌍
-          </Text>
+          <Text style={s.subtitle}>Vyber si, čo chceš dnes urobiť pre planétu 🌍</Text>
         </View>
 
-        {/* --- GRID tlačidiel --- */}
+        {/* GRID */}
         <View style={s.grid}>
-          <Pressable
-            style={({ pressed }) => [s.card, pressed && s.cardPressed]}
-            onPress={() => router.push("/classify")}
-          >
+          <Pressable style={({ pressed }) => [s.card, pressed && s.cardPressed]} onPress={() => router.push("/classify")}>
             <Icon name="camera" size={46} color={brand.accent} />
             <Text style={s.cardTitle}>Rozpoznaj odpad</Text>
             <Text style={s.cardText}>Naskenuj predmet a zisti, kam patrí</Text>
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [s.card, pressed && s.cardPressed]}
-            onPress={() => router.push("/map")}
-          >
+          <Pressable style={({ pressed }) => [s.card, pressed && s.cardPressed]} onPress={() => router.push("/map")}>
             <Icon name="map-marker-radius" size={46} color={brand.accent} />
             <Text style={s.cardTitle}>Zberné miesta</Text>
-            <Text style={s.cardText}>
-              Nájdite najbližšie kontajnery alebo recyklačné body
-            </Text>
+            <Text style={s.cardText}>Najbližšie recyklačné body</Text>
           </Pressable>
 
-          <Pressable
-            style={({ pressed }) => [s.card, pressed && s.cardPressed]}
-            onPress={() => router.push("/education")}
-          >
+          <Pressable style={({ pressed }) => [s.card, pressed && s.cardPressed]} onPress={() => router.push("/education")}>
             <Icon name="lightbulb-on-outline" size={46} color={brand.accent} />
             <Text style={s.cardTitle}>Eko-inšpirácie</Text>
-            <Text style={s.cardText}>
-              Nauč sa triediť efektívnejšie a získaj motiváciu 🌱
-            </Text>
+            <Text style={s.cardText}>Nauč sa triediť ešte lepšie 🌱</Text>
           </Pressable>
         </View>
 
-        {/* --- FOOTER --- */}
         <View style={s.footer}>
           <Text style={s.footerText}>Verzia 1.0 • TUKE 2025</Text>
         </View>
@@ -195,31 +179,14 @@ export default function Home() {
 }
 
 const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: brand.bg,
-  },
-
-  /* ===== HERO ===== */
   hero: {
     backgroundColor: brand.primary,
     borderRadius: 24,
     padding: 18,
     marginTop: 10,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 14,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
   },
-  heroTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  heroTop: { flexDirection: "row", justifyContent: "space-between" },
   levelBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -227,15 +194,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
   },
-  levelText: {
-    color: "#a5f5c5",
-    fontWeight: "800",
-    marginLeft: 6,
-    fontSize: 13,
-  },
+  levelText: { color: "#a5f5c5", fontWeight: "800", marginLeft: 6 },
   historyBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -245,25 +205,9 @@ const s = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "rgba(255,255,255,0.06)",
   },
-  historyText: {
-    color: "#d8f6e3",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-
-  gaugeWrap: {
-    marginTop: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  heroActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 8,
-    width: "100%",
-  },
+  historyText: { color: "#d8f6e3", fontWeight: "700" },
+  gaugeWrap: { marginTop: 8, alignItems: "center" },
+  heroActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
   pill: {
     backgroundColor: "#00c853",
     paddingHorizontal: 14,
@@ -272,66 +216,28 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 6,
-    elevation: 5,
   },
   pillPressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
-  pillText: {
-    color: "#013a20",
-    fontWeight: "900",
-    fontSize: 13,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
+  pillText: { color: "#013a20", fontWeight: "900" },
   pillOutline: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
     borderWidth: 1.5,
     borderColor: "#00c853",
-    backgroundColor: "transparent",
+    flexDirection: "row",
+    gap: 8,
   },
   pillOutlinePressed: { opacity: 0.9, transform: [{ scale: 0.98 }] },
-  pillOutlineText: {
-    color: "#c8ffd8",
-    fontWeight: "800",
-    fontSize: 13,
-    letterSpacing: 0.4,
-  },
-
-  /* --- HLAVNÝ HEADER --- */
-  header: {
-    alignItems: "center",
-    paddingVertical: 18,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: brand.accent,
-    marginTop: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: brand.textDim,
-    marginTop: 6,
-    textAlign: "center",
-    maxWidth: 320,
-  },
-
-  /* --- GRID --- */
+  pillOutlineText: { color: "#c8ffd8", fontWeight: "800" },
+  header: { alignItems: "center", paddingVertical: 18 },
+  title: { fontSize: 26, fontWeight: "800", color: brand.accent },
+  subtitle: { color: brand.textDim, marginTop: 6, textAlign: "center" },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
     rowGap: 18,
-    columnGap: 16,
-    marginTop: 6,
   },
   card: {
     width: "47%",
@@ -340,34 +246,11 @@ const s = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 5,
     elevation: 5,
-    paddingHorizontal: 10,
-    textAlign: "center",
   },
-  cardPressed: { transform: [{ scale: 0.98 }], opacity: 0.95 },
-  cardTitle: {
-    marginTop: 10,
-    fontSize: 16,
-    fontWeight: "800",
-    color: brand.accent,
-    textAlign: "center",
-  },
-  cardText: {
-    marginTop: 6,
-    fontSize: 12,
-    color: brand.textDim,
-    textAlign: "center",
-  },
-
-  /* --- FOOTER --- */
-  footer: {
-    alignItems: "center",
-    marginTop: "auto",
-    paddingVertical: 20,
-  },
+  cardPressed: { transform: [{ scale: 0.98 }] },
+  cardTitle: { marginTop: 10, fontSize: 16, fontWeight: "800", color: brand.accent },
+  cardText: { marginTop: 6, fontSize: 12, color: brand.textDim, textAlign: "center" },
+  footer: { alignItems: "center", paddingVertical: 20 },
   footerText: { color: "#777", fontSize: 12 },
 });
