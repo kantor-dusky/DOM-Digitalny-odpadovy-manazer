@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import React, { useRef, useState } from "react";
@@ -66,7 +67,7 @@ export default function Index() {
     setFacing((f) => (f === "back" ? "front" : "back"));
   }
 
-  async function uploadToBackend() {
+async function uploadToBackend() {
     if (!photoUri) return;
     try {
       setLoading(true);
@@ -83,7 +84,6 @@ export default function Index() {
       const resp = await fetch(API_URL, {
         method: "POST",
         body: form,
-        // ZÁMERNE nenastavuj Content-Type, nech ho určí fetch (boundary)
       });
 
       if (!resp.ok) {
@@ -93,12 +93,52 @@ export default function Index() {
 
       const data = await resp.json();
       setResult(data); // { code, result }
-      // voliteľne: zavri modal po úspechu
+
+      // 🔥 IDENTICKÁ LOGIKA AKO V HOME:
+      if (data.code && data.result) {
+        const newPoints = 100;
+
+        // 1. Načítanie starých bodov z AsyncStorage
+        const prev = await AsyncStorage.getItem("body");
+        const totalPoints = prev ? Number(prev) + newPoints : newPoints;
+
+        // 2. Uloženie nových bodov lokálne
+        await AsyncStorage.setItem("body", String(totalPoints));
+
+        // 3. Výpočet a uloženie levelu (rovnako ako v Home)
+        const currentLevel = Math.floor(totalPoints / 1000) + 1;
+        await AsyncStorage.setItem("level", String(currentLevel));
+
+        // 4. Odoslanie na server (rovnako ako v Home)
+        const userId = await AsyncStorage.getItem("user_id");
+        const token = await AsyncStorage.getItem("token");
+
+        if (userId && token) {
+          try {
+            await fetch(`${API_URL}/update-points`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                body: totalPoints,
+              }),
+            });
+          } catch (serverErr) {
+            console.warn("Server sa nepodarilo aktualizovať, ale body sú v mobile.");
+          }
+        }
+
+        Alert.alert("Úspech", `Odpad rozpoznaný (${data.result}). Získali ste ${newPoints} bodov!`);
+      }
+
       setCameraOpen(false);
       setPhotoUri(null);
     } catch (e: any) {
       setErrorMsg(e?.message ?? "Neznáma chyba pri odosielaní");
-      Alert.alert("Chyba", errorMsg ?? "Nepodarilo sa odoslať obrázok.");
+      Alert.alert("Chyba", "Nepodarilo sa odoslať obrázok.");
     } finally {
       setLoading(false);
     }
