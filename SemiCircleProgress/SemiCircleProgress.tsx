@@ -3,13 +3,13 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 type Props = {
-  size?: number;          // priemer boxu
-  strokeWidth?: number;   // hrúbka oblúka
-  progress: number;       // 0..1
-  labelTop?: string;      // text hore
-  centerText: string;     // text v strede
-  bottomText?: string;    // text dole
-  level: number;          // LEVEL sem prichádza priamo z Home.tsx
+  size?: number;
+  strokeWidth?: number;
+  progress: number; // 0..1
+  labelTop?: string;
+  centerText: string;
+  bottomText?: string;
+  level: number;
   colors?: {
     track?: string;
     fill?: string;
@@ -17,25 +17,15 @@ type Props = {
   };
 };
 
-// Funkcia na výber správneho badge podľa levelu
 const getBadgeForLevel = (level: number) => {
-  console.log("🟢 getBadgeForLevel, level =", level);
-
   switch (level) {
-    case 1:
-      return require("../assets/badges/level1.png");
-    case 2:
-      return require("../assets/badges/level2.png");
-    case 3:
-      return require("../assets/badges/level3.png");
-    case 4:
-      return require("../assets/badges/level4.png");
-    case 5:
-      return require("../assets/badges/level5.png");
-    case 6:
-      return require("../assets/badges/level6 - unusable.png");
-    default:
-      return require("../assets/badges/level1.png");
+    case 1: return require("../assets/badges/level1.png");
+    case 2: return require("../assets/badges/level2.png");
+    case 3: return require("../assets/badges/level3.png");
+    case 4: return require("../assets/badges/level4.png");
+    case 5: return require("../assets/badges/level5.png");
+    case 6: return require("../assets/badges/level6 - unusable.png");
+    default: return require("../assets/badges/level1.png");
   }
 };
 
@@ -53,25 +43,32 @@ export default function SemiCircleProgress({
     text: "#ecfff4",
   },
 }: Props) {
-
-  console.log("🔵 SemiCircleProgress props level =", level, "progress =", progress);
-
   const imageSource = getBadgeForLevel(level);
 
+  // --- MATEMATIKA PRE FIXNÝ 3/4 KRUH ---
   const radius = size / 2 - strokeWidth / 2;
   const cx = size / 2;
   const cy = size / 2;
   const circumference = 2 * Math.PI * radius;
-  const half = circumference / 2;
+  
+  // 3/4 kruhu je 75% obvodu
+  const arcLength = circumference * 0.75; 
+  
+  // dashArray musí definovať: [viditeľná časť, medzera]
+  // Pre pozadie (track) je to fixné
+  const trackDashArray = `${arcLength} ${circumference}`;
+  
+  // Pre progres (fill) používame rovnaký dashArray, 
+  // ale offsetom budeme "vysúvať" farbu von z viditeľnej časti
+  const fillDashOffset = arcLength * (1 - Math.max(0, Math.min(1, progress)));
 
-  const dashArray = `${half}, ${half}`;
-  const dashOffset = half * (1 - Math.max(0, Math.min(1, progress)));
+  // Rotácia 135 stupňov otočí kruh tak, aby otvor bol presne dole
+  const rotation = 135;
 
   return (
-    <View style={{ width: size, aspectRatio: 1 }}>
+    <View style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
-
-        {/* Pozadie polkruhu */}
+        {/* FIXNÉ POZADIE (Koľajnica) - toto sa nikdy nehýbe */}
         <Circle
           cx={cx}
           cy={cy}
@@ -79,12 +76,12 @@ export default function SemiCircleProgress({
           stroke={colors.track}
           strokeWidth={strokeWidth}
           fill="transparent"
-          strokeDasharray={dashArray}
+          strokeDasharray={trackDashArray}
           strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
+          transform={`rotate(${rotation} ${cx} ${cy})`}
         />
 
-        {/* Vyplnenie progresu */}
+        {/* PROGRES - začína na rovnakom mieste ako track, ale skracuje sa offsetom */}
         <Circle
           cx={cx}
           cy={cy}
@@ -92,35 +89,24 @@ export default function SemiCircleProgress({
           stroke={colors.fill}
           strokeWidth={strokeWidth}
           fill="transparent"
-          strokeDasharray={dashArray}
-          strokeDashoffset={dashOffset}
+          strokeDasharray={trackDashArray}
+          strokeDashoffset={fillDashOffset}
           strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
+          transform={`rotate(${rotation} ${cx} ${cy})`}
         />
       </Svg>
 
-      {/* TEXT + BADGE */}
+      {/* CENTRÁLNY OBSAH */}
       <View style={styles.centerWrap}>
         <Image
           key={level}
           source={imageSource}
-          style={{
-            width: 140,
-            height: 140,
-            marginBottom: 0,
-          }}
+          style={styles.badgeImage}
           resizeMode="contain"
         />
-
-        {labelTop ? (
-          <Text style={[styles.labelTop, { color: colors.text }]}>{labelTop}</Text>
-        ) : null}
-
+        {labelTop && <Text style={[styles.labelTop, { color: colors.text }]}>{labelTop}</Text>}
         <Text style={[styles.centerText, { color: colors.text }]}>{centerText}</Text>
-
-        {bottomText ? (
-          <Text style={[styles.bottomText, { color: colors.text }]}>{bottomText}</Text>
-        ) : null}
+        {bottomText && <Text style={[styles.bottomText, { color: colors.text }]}>{bottomText}</Text>}
       </View>
     </View>
   );
@@ -132,26 +118,27 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: "100%",
+    bottom: 0,
     alignItems: "center",
-    justifyContent: "flex-end",
-    paddingBottom: 24,
+    justifyContent: "center",
+    paddingBottom: 10, // Mierne nadvihnutie textu kvôli spodnému otvoru
+  },
+  badgeImage: {
+    width: 130,
+    height: 130,
+    marginBottom: 0,
   },
   labelTop: {
     fontSize: 12,
-    letterSpacing: 1.5,
-    opacity: 0.9,
-    marginTop: 4,
+    letterSpacing: 1.2,
+    opacity: 0.8,
   },
   centerText: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "900",
-    letterSpacing: 0.2,
-    marginTop: 2,
   },
   bottomText: {
-    fontSize: 12,
-    opacity: 0.85,
-    marginTop: 4,
+    fontSize: 13,
+    opacity: 0.7,
   },
 });
