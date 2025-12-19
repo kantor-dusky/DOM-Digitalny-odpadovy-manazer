@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons as Icon, MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import React, { useState, useEffect } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useState, useEffect, useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SemiCircleProgress from "../components/SemiCircleProgress";
@@ -21,7 +21,8 @@ export default function Home() {
   const [points, setPoints] = useState(0);
 
   // Načítanie bodov pri štarte
-  useEffect(() => {
+useFocusEffect(
+  useCallback(() => {
     const loadPoints = async () => {
       const storedPoints = await AsyncStorage.getItem("body");
       if (storedPoints) {
@@ -29,21 +30,29 @@ export default function Home() {
       }
     };
     loadPoints();
-  }, []);
+  }, [])
+);
+useEffect(() => {
+  const i = setInterval(async () => {
+    const p = await AsyncStorage.getItem("body");
+    setPoints(Number(p));
+  }, 1000); // Každé 2 sekundy skontroluje body
+  return () => clearInterval(i);
+}, []);
 
-  // Výpočet levelu
-  const step = 1000;
-  const level = Math.floor(points / step) + 1;
-  const nextLevelAt = level * step;
-  const progress = Math.min(1, (points % step) / step);
+// 2. Výpočet levelu (to máš správne, nechaj to pod tým)
+const step = 1000;
+const level = Math.floor(points / step) + 1;
+const nextLevelAt = level * step;
+const progress = Math.min(1, (points % step) / step);
 
-  // Uloženie levelu do AsyncStorage
-  useEffect(() => {
-    AsyncStorage.setItem("level", String(level));
-  }, [level]);
+// 3. Uloženie levelu (toto tiež nechaj tak, ako si mal)
+useEffect(() => {
+  AsyncStorage.setItem("level", String(level));
+}, [level]);
 
   // +100 bodov
-  const handleEarnPoints = async () => {
+  const   handleEarnPoints = async () => {
     const newPoints = 100;
 
     const prev = await AsyncStorage.getItem("body");
