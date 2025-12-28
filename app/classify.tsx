@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -34,9 +34,41 @@ export default function Index() {
   const [result, setResult] = useState<{ code: number; result: string | null } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+const getBinByCode = (code: number) => {
+  // Papier (20, 21, 22)
+  if (code >= 20 && code <= 22) {
+    return { color: "#2280ccff", name: "MODRÝ KOŠ (Papier)" };
+  }
+  // Plasty (01 - 07, 19)
+  if ((code >= 1 && code <= 7) || code === 19) {
+    return { color: "#dac71cff", name: "ŽLTÝ KOŠ (Plasty)" };
+  }
+  // Sklo (70, 71, 72)
+  if (code >= 70 && code <= 72) {
+    return { color: "#2c922fff", name: "ZELENÝ KOŠ (Sklo)" };
+  }
+  // Kovy (40, 41)
+  if (code === 40 || code === 41) {
+    return { color: "#f00a0aff", name: "ČERVENÝ KOŠ (Kovy)" };
+  }
+  // Bioodpad
+  if (code >= 80 && code <= 98) {
+    return { color: "#795548", name: "HNEDÝ KOŠ (Bioodpad)" };
+  }
+  // Ostatné / Komunál
+  return { color: "#333333", name: "ČIERNY KOŠ (Komunál)" };
+};
+
   const cameraRef = useRef<CameraView>(null);
 
+  // 🔥 AUTOMATICKÉ SPUSTENIE KAMERY PO NAČÍTANÍ
+  useEffect(() => {
+    if (permission?.granted) {
+      setCameraOpen(true);
+    }
+  }, [permission]);
   if (!permission) return null;
+
 
   if (!permission.granted) {
     return (
@@ -68,81 +100,96 @@ export default function Index() {
   }
 
 async function uploadToBackend() {
-    if (!photoUri) return;
-    try {
-      setLoading(true);
-      setErrorMsg(null);
-      setResult(null);
+  if (!photoUri) return;
+  try {
+    setLoading(true);
+    setErrorMsg(null);
+    setResult(null);
 
-      const form = new FormData();
-      form.append("file", {
-        uri: photoUri,
-        name: "photo.jpg",
-        type: "image/jpeg",
-      } as any);
+    const form = new FormData();
+    form.append("file", {
+      uri: photoUri,
+      name: "photo.jpg",
+      type: "image/jpeg",
+    } as any);
 
-      const resp = await fetch(API_URL, {
-        method: "POST",
-        body: form,
-      });
+    const resp = await fetch(API_URL, {
+      method: "POST",
+      body: form,
+    });
 
-      if (!resp.ok) {
-        const txt = await resp.text();
-        throw new Error(`Server ${resp.status}: ${txt}`);
-      }
-
-      const data = await resp.json();
-      setResult(data); // { code, result }
-
-      // 🔥 IDENTICKÁ LOGIKA AKO V HOME:
-      if (data.code && data.result) {
-        const newPoints = 100;
-
-        // 1. Načítanie starých bodov z AsyncStorage
-        const prev = await AsyncStorage.getItem("body");
-        const totalPoints = prev ? Number(prev) + newPoints : newPoints;
-
-        // 2. Uloženie nových bodov lokálne
-        await AsyncStorage.setItem("body", String(totalPoints));
-
-        // 3. Výpočet a uloženie levelu (rovnako ako v Home)
-        const currentLevel = Math.floor(totalPoints / 1000) + 1;
-        await AsyncStorage.setItem("level", String(currentLevel));
-
-        // 4. Odoslanie na server (rovnako ako v Home)
-        const userId = await AsyncStorage.getItem("user_id");
-        const token = await AsyncStorage.getItem("token");
-
-        if (userId && token) {
-          try {
-            await fetch(`${API_URL}/update-points`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                user_id: userId,
-                body: totalPoints,
-              }),
-            });
-          } catch (serverErr) {
-            console.warn("Server sa nepodarilo aktualizovať, ale body sú v mobile.");
-          }
-        }
-
-        Alert.alert("Úspech", `Odpad rozpoznaný (${data.result}). Získali ste ${newPoints} bodov!`);
-      }
-
-      setCameraOpen(false);
-      setPhotoUri(null);
-    } catch (e: any) {
-      setErrorMsg(e?.message ?? "Neznáma chyba pri odosielaní");
-      Alert.alert("Chyba", "Nepodarilo sa odoslať obrázok.");
-    } finally {
-      setLoading(false);
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error(`Server ${resp.status}: ${txt}`);
     }
+
+    const data = await resp.json();
+    setResult(data);
+
+    if (data.code && data.result) {
+      const newPoints = 25;
+      
+      // Získanie info o koši na základe výsledku zo servera
+      // Predpokladáme, že data.result vracia napr. "plast"
+      const resKey = String(data.result).toLowerCase();
+const binInfo = getBinByCode(data.code); // Použije tú istú funkciu
+
+  Alert.alert(
+    "Odpad rozpoznaný ✅",
+    `Tento predmet má kód ${data.code}.\n\nPatrí do: ${binInfo.name}`,
+        [
+          {
+            text: "Rozumiem",
+            onPress: async () => {
+              // 2. Spracovanie bodov
+              const prev = await AsyncStorage.getItem("body");
+              const totalPoints = prev ? Number(prev) + newPoints : newPoints;
+
+              await AsyncStorage.setItem("body", String(totalPoints));
+              const currentLevel = Math.floor(totalPoints / 1000) + 1;
+              await AsyncStorage.setItem("level", String(currentLevel));
+
+              const userId = await AsyncStorage.getItem("user_id");
+              const token = await AsyncStorage.getItem("token");
+
+              if (userId && token) {
+                try {
+                  const BASE_URL = API_URL.replace("/classify", "");
+                  await fetch(`${BASE_URL}/update-points`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      user_id: userId,
+                      body: totalPoints,
+                    }),
+                  });
+                } catch (e) {
+                  console.warn("Sync error");
+                }
+              }
+
+              // 3. Druhé oznámenie o bodoch
+              Alert.alert("Bonus", `Práve ste získali ${newPoints} bodov za správne triedenie! 🌱`);
+            },
+          },
+        ]
+      );
+    } else {
+      Alert.alert("Neznámy predmet", "Nepodarilo sa určiť druh odpadu.");
+    }
+
+    setCameraOpen(false);
+    setPhotoUri(null);
+  } catch (e: any) {
+    setErrorMsg(e?.message ?? "Neznáma chyba");
+    Alert.alert("Chyba", "Nepodarilo sa odoslať obrázok.");
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <SafeAreaView style={s.container}>
@@ -153,33 +200,27 @@ async function uploadToBackend() {
         <Text style={s.subtitle}>Triediť správne. Jednoducho.</Text>
       </View>
 
-      {/* Grid kariet */}
-      <View style={s.grid}>
-        <Card
-          icon="lightbulb-on-outline"
-          label="Tipy na triedenie"
-          onPress={() => alert("Čoskoro")}
-        />
-        <Card
-          icon="calendar"
-          label="Kalendár zvozu"
-          onPress={() => alert("Čoskoro")}
-        />
-        <Card
-          icon="trophy-variant"
-          label="Odznaky a odmeny"
-          onPress={() => alert("Čoskoro")}
-        />
+      {/* Výsledok poslednej klasifikácie s farbou - UPRAVENÁ LOGIKA */}
+      {result && (() => {
+  // Použijeme funkciu getBinByCode podľa číselného kódu z backendu
+  const binInfo = getBinByCode(result.code);
+
+  return (
+    <View style={[s.resultBox, { borderLeftWidth: 8, borderLeftColor: binInfo.color }]}>
+      <Text style={s.resultTitle}>Výsledok klasifikácie</Text>
+      
+      <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 8 }}>
+        <MaterialCommunityIcons name="delete-empty" size={20} color={binInfo.color} />
+        <Text style={[s.bold, { color: binInfo.color, marginLeft: 8, fontSize: 16 }]}>
+          {binInfo.name}
+        </Text>
       </View>
 
-      {/* Výsledok poslednej klasifikácie */}
-      {result && (
-        <View style={s.resultBox}>
-          <Text style={s.resultTitle}>Výsledok klasifikácie</Text>
-          <Text style={s.resultLine}>EÚ kód: <Text style={s.bold}>{result.code}</Text></Text>
-          <Text style={s.resultLine}>DB: <Text style={s.bold}>{result.result ?? "– bez pravidla –"}</Text></Text>
-        </View>
-      )}
+      <Text style={s.resultLine}>EÚ kód: <Text style={s.bold}>{result.code}</Text></Text>
+      <Text style={s.resultLine}>Materiál: <Text style={s.bold}>{result.result}</Text></Text>
+    </View>
+  );
+})()}
       {errorMsg && <Text style={{ color: "crimson", marginTop: 8 }}>{errorMsg}</Text>}
 
       {/* FAB – rýchla akcia „Rozpoznať odpad“ */}
