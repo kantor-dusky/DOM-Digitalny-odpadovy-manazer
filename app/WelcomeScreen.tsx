@@ -1,6 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   ImageBackground,
   StatusBar,
   StyleSheet,
@@ -10,10 +12,51 @@ import {
 } from "react-native";
 
 export default function WelcomeScreen() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const name = await AsyncStorage.getItem("name");
+      
+      if (token) {
+        setIsLoggedIn(true);
+        setUserName(name || "");
+      }
+    } catch (error) {
+      console.error("Error checking login status:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <ImageBackground
+        source={{
+          uri: "https://cdn.pixabay.com/photo/2020/04/01/09/29/recycle-4999993_1280.jpg",
+        }}
+        style={styles.background}
+        resizeMode="cover"
+        blurRadius={3}
+      >
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color="#00c853" />
+        </View>
+      </ImageBackground>
+    );
+  }
+
   return (
     <ImageBackground
       source={{
-       uri: "https://cdn.pixabay.com/photo/2020/04/01/09/29/recycle-4999993_1280.jpg",
+        uri: "https://cdn.pixabay.com/photo/2020/04/01/09/29/recycle-4999993_1280.jpg",
       }}
       style={styles.background}
       resizeMode="cover"
@@ -21,38 +64,69 @@ export default function WelcomeScreen() {
     >
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Polopriehľadný tmavý filter */}
       <View style={styles.overlay}>
         <Text style={styles.logo}>♻️</Text>
         <Text style={styles.title}>Digitálny odpadový manažér</Text>
-        <Text style={styles.subtitle}>
-          Triediť odpad je jednoduché – rob to múdro, rob to ekologicky 🌱
-        </Text>
+        
+        {isLoggedIn ? (
+          <>
+            <Text style={styles.subtitle}>
+              Vitajte späť{userName ? `, ${userName}` : ""}! 👋
+            </Text>
+            <Text style={styles.welcomeText}>
+              Pokračujte v triedení odpadu a získavajte body 🌱
+            </Text>
 
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.buttonPrimary}
-            activeOpacity={0.85}
-            onPress={() => router.push("/login")}
-          >
-            <Text style={styles.buttonText}>Prihlásiť sa</Text>
-          </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.buttonPrimary}
+                activeOpacity={0.85}
+                onPress={() => router.push("/home")}
+              >
+                <Text style={styles.buttonText}>Pokračovať</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.buttonSecondary}
-            activeOpacity={0.85}
-            onPress={() => router.push("/register")}
-          >
-            <Text style={styles.buttonSecondaryText}>Registrovať sa</Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.buttonSecondary}
+                activeOpacity={0.85}
+                onPress={() => router.push("/profile")}
+              >
+                <Text style={styles.buttonSecondaryText}>Môj profil</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.subtitle}>
+              Triediť odpad je jednoduché – rob to múdro, rob to ekologicky 🌱
+            </Text>
 
-          <TouchableOpacity
-            onPress={() => router.push("/home")}
-            style={styles.skipButton}
-          >
-            <Text style={styles.skipText}>Preskočiť</Text>
-          </TouchableOpacity>
-        </View>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.buttonPrimary}
+                activeOpacity={0.85}
+                onPress={() => router.push("/login")}
+              >
+                <Text style={styles.buttonText}>Prihlásiť sa</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.buttonSecondary}
+                activeOpacity={0.85}
+                onPress={() => router.push("/register")}
+              >
+                <Text style={styles.buttonSecondaryText}>Registrovať sa</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => router.push("/home")}
+                style={styles.skipButton}
+              >
+                <Text style={styles.skipText}>Preskočiť</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         <Text style={styles.footer}>© TUKE 2025 • verzia 1.0</Text>
       </View>
@@ -89,6 +163,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   subtitle: {
+    fontSize: 18,
+    color: "#fff",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 8,
+    maxWidth: 320,
+    fontWeight: "600",
+  },
+  welcomeText: {
     fontSize: 16,
     color: "#dfe6e9",
     textAlign: "center",
