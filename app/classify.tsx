@@ -41,7 +41,7 @@ const getBinByCode = (code: number) => {
   }
   // Plasty (01 - 07, 19)
   if ((code >= 1 && code <= 7) || code === 19) {
-    return { color: "#dac71cff", name: "ŽLTÝ KOŠ (Plasty)" };
+    return { color: "#d8c72bff", name: "ŽLTÝ KOŠ (Plasty)" };
   }
   // Sklo (70, 71, 72)
   if (code >= 70 && code <= 72) {
@@ -140,40 +140,54 @@ const binInfo = getBinByCode(data.code); // Použije tú istú funkciu
         [
           {
             text: "Rozumiem",
-            onPress: async () => {
-              // 2. Spracovanie bodov
-              const prev = await AsyncStorage.getItem("body");
-              const totalPoints = prev ? Number(prev) + newPoints : newPoints;
+onPress: async () => {
+  // 1. Lokálne body (v mobile)
+  const prev = await AsyncStorage.getItem("body");
+  const totalPoints = prev ? Number(prev) + newPoints : newPoints;
+  await AsyncStorage.setItem("body", String(totalPoints));
 
-              await AsyncStorage.setItem("body", String(totalPoints));
-              const currentLevel = Math.floor(totalPoints / 1000) + 1;
-              await AsyncStorage.setItem("level", String(currentLevel));
+  const userId = await AsyncStorage.getItem("user_id");
+  const token = await AsyncStorage.getItem("token");
 
-              const userId = await AsyncStorage.getItem("user_id");
-              const token = await AsyncStorage.getItem("token");
+  // Ak máme ID aj Token, pošleme to na server
+  if (userId && token) {
+    const BASE_URL = API_URL.replace("/classify", "");
+    const headers = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
 
-              if (userId && token) {
-                try {
-                  const BASE_URL = API_URL.replace("/classify", "");
-                  await fetch(`${BASE_URL}/update-points`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      user_id: userId,
-                      body: totalPoints,
-                    }),
-                  });
-                } catch (e) {
-                  console.warn("Sync error");
-                }
-              }
+    try {
+      // VOLANIE A: Body (toto ti už fungovalo)
+      await fetch(`${BASE_URL}/update-points`, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          user_id: userId,
+          body: totalPoints,
+        }),
+      });
 
-              // 3. Druhé oznámenie o bodoch
-              Alert.alert("Bonus", `Práve ste získali ${newPoints} bodov za správne triedenie! 🌱`);
-            },
+      // VOLANIE B: História (úplne rovnaký štýl)
+      const historyResponse = await fetch(`${BASE_URL}/update-history`, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          user_id: Number(userId), // Konverzia na číslo
+          typ_odpadu_id: data.code, // Kód z AI modelu
+        }),
+      });
+
+      const hData = await historyResponse.json();
+      console.log("Výsledok zápisu histórie:", hData);
+
+    } catch (e) {
+      console.warn("Chyba pri synchronizácii:", e);
+    }
+  }
+
+  Alert.alert("Bonus", `Práve ste získali ${newPoints} bodov! 🌱`);
+},
           },
         ]
       );
