@@ -1,0 +1,26 @@
+Treba updatnut subory ktore boli menene. Takze classify.tsx, api.py. Pridany subor history.tsx
+
+Treba pridat do databazy:
+CREATE TABLE user_recyklacia (
+    user_id INTEGER NOT NULL,
+    typ_odpadu_id INTEGER NOT NULL,
+    pocet_recyklacii INTEGER DEFAULT 0,
+    
+    -- Definícia primárneho kľúča (kombinácia používateľa a typu odpadu)
+    PRIMARY KEY (user_id, typ_odpadu_id),
+    
+    -- Cudzie kľúče pre integritu dát
+    CONSTRAINT fk_user 
+        FOREIGN KEY (user_id) 
+        REFERENCES users(id) 
+        ON DELETE CASCADE,
+        
+    CONSTRAINT fk_odpad 
+        FOREIGN KEY (typ_odpadu_id) 
+        REFERENCES hodnoty(cislo) 
+        ON DELETE CASCADE
+);
+ako som teoreticky by malo ist aj bez toho ale tak pre istotu pridajte
+
+stiahnut novu kniznicu 
+npx expo install react-native-chart-kit react-native-svg
