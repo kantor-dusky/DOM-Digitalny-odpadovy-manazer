@@ -1,9 +1,21 @@
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, } from "react-native";
-// 1. PRIDANÝ IMPORT PRE PAMÄŤ
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  Alert,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// POUŽIJTE TU ISTÚ URL AKO V REGISTRÁCII
 const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
 
 export default function LoginScreen() {
@@ -12,36 +24,61 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    // Validácia
     if (!email || !password) {
       Alert.alert("Chyba", "Vyplňte všetky polia");
+      return;
+    }
+
+    if (!email.includes("@")) {
+      Alert.alert("Chyba", "Neplatný email");
       return;
     }
 
     setLoading(true);
 
     try {
+      // API call pre prihlásenie
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // 2. ULOŽENIE DÁT DO PAMÄTE
-        // data.name prichádza z tvojho api.py (Token model)
-        await AsyncStorage.setItem("userName", data.name);
-        await AsyncStorage.setItem("userEmail", email);
+        // Úspešné prihlásenie
+        Alert.alert("Úspech", "Prihlásenie bolo úspešné!");
 
-        Alert.alert("Úspech", `Vitajte späť, ${data.name}!`);
+        // --- STARÉ RIADKY (Pre kolegov) ---
+        await AsyncStorage.setItem("token", data.access_token);
+        await AsyncStorage.setItem("user_id", String(data.user_id));
+        await AsyncStorage.setItem("name", data.name);
+        await AsyncStorage.setItem("body", String(data.body)); 
+
+        // --- NOVÉ RIADKY (Pre tvoj Profil) ---
+        await AsyncStorage.setItem("userId", String(data.user_id)); 
+        await AsyncStorage.setItem("userEmail", email);           
+
+        console.log("Access Token:", data.access_token);
+        console.log("User ID:", data.user_id);
+        console.log("Body:", data.body); 
+
+        // Prechod na home screen
         router.replace("/home");
       } else {
-        Alert.alert("Chyba", data.detail || "Nesprávne údaje");
+        // Chyba z API
+        Alert.alert("Chyba", data.detail || "Prihlásenie zlyhalo. Skúste znova.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      Alert.alert("Chyba", "Nepodarilo sa pripojiť k serveru.");
+      Alert.alert("Chyba", "Nepodarilo sa pripojiť k serveru. Skontrolujte pripojenie.");
     } finally {
       setLoading(false);
     }
@@ -57,7 +94,7 @@ export default function LoginScreen() {
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
       <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : "height"} 
         style={styles.container}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -78,6 +115,7 @@ export default function LoginScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  autoComplete="email"
                 />
               </View>
 
@@ -95,14 +133,15 @@ export default function LoginScreen() {
               </View>
 
               <TouchableOpacity 
-                style={styles.forgotPassword}
-                onPress={() => Alert.alert("Info", "Funkcia v príprave")}
+                style={styles.forgotPassword} 
+                onPress={() => Alert.alert("Info", "Funkcia obnovy hesla")}
               >
                 <Text style={styles.forgotPasswordText}>Zabudli ste heslo?</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
+                activeOpacity={0.85}
                 onPress={handleLogin}
                 disabled={loading}
               >
@@ -126,23 +165,107 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  background: { flex: 1 },
-  container: { flex: 1 },
-  scrollContent: { flexGrow: 1 },
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", paddingHorizontal: 32, paddingVertical: 60 },
-  logo: { fontSize: 52, marginBottom: 10 },
-  title: { fontSize: 32, fontWeight: "800", textAlign: "center", color: "#fff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 },
-  subtitle: { fontSize: 16, color: "#dfe6e9", textAlign: "center", marginBottom: 40 },
-  form: { width: "100%", maxWidth: 400 },
-  inputContainer: { marginBottom: 20 },
-  label: { color: "#fff", fontSize: 14, fontWeight: "600", marginBottom: 8, marginLeft: 4 },
-  input: { backgroundColor: "rgba(255,255,255,0.9)", paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, fontSize: 16, color: "#333" },
-  forgotPassword: { alignSelf: "flex-end", marginBottom: 24 },
-  forgotPasswordText: { color: "#00c853", fontSize: 14, fontWeight: "600" },
-  button: { backgroundColor: "#00c853", paddingVertical: 16, borderRadius: 12, elevation: 6, marginBottom: 20 },
-  buttonDisabled: { backgroundColor: "#6c9a6f" },
-  buttonText: { fontSize: 18, fontWeight: "700", color: "#fff", textAlign: "center", textTransform: "uppercase" },
-  registerContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
-  registerText: { color: "#dfe6e9", fontSize: 15 },
-  registerLink: { color: "#00c853", fontSize: 15, fontWeight: "700" },
+  background: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+    paddingVertical: 60,
+  },
+  logo: {
+    fontSize: 52,
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "800",
+    textAlign: "center",
+    color: "#fff",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#dfe6e9",
+    textAlign: "center",
+    marginBottom: 40,
+  },
+  form: {
+    width: "100%",
+    maxWidth: 400,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  label: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  input: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    fontSize: 16,
+    color: "#333",
+  },
+  forgotPassword: {
+    alignSelf: "flex-end",
+    marginBottom: 24,
+  },
+  forgotPasswordText: {
+    color: "#00c853",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  button: {
+    backgroundColor: "#00c853",
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
+    elevation: 6,
+    marginBottom: 20,
+  },
+  buttonDisabled: {
+    backgroundColor: "#6c9a6f",
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fff",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  registerContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  registerText: {
+    color: "#dfe6e9",
+    fontSize: 15,
+  },
+  registerLink: {
+    color: "#00c853",
+    fontSize: 15,
+    fontWeight: "700",
+  },
 });
