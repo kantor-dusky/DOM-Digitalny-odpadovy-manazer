@@ -1,101 +1,181 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-
-const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
+import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Alert } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+// 1. DÔLEŽITÉ: Musíš mať tento import pre prácu s pamäťou
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from "expo-router";
 
 export default function Profile() {
-  const [user, setUser] = useState<{ name: string; email: string; body: number } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState("Načítavam...");
+  const [email, setEmail] = useState("");
 
-  // Načítanie používateľa z DB podľa user_id
+  // Načítanie dát pri otvorení obrazovky
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const userId = await AsyncStorage.getItem("user_id");
-        if (!userId) {
-          setLoading(false);
-          return;
-        }
-
-        const resp = await fetch(`${API_BASE_URL}/users`);
-        if (!resp.ok) throw new Error("Nepodarilo sa načítať údaje.");
-        const data = await resp.json();
-
-        const found = data.users.find((u: any) => String(u.id) === String(userId));
-        if (found) setUser(found);
-        else Alert.alert("Upozornenie", "Používateľ sa nenašiel.");
-      } catch (e: any) {
-        console.error(e);
-        Alert.alert("Chyba", e.message || "Nepodarilo sa načítať profil.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
+    loadUserData();
   }, []);
 
-  const handleLogout = async () => {
-    await AsyncStorage.multiRemove(["token", "user_id", "body", "name"]);
-    setUser(null);
-    // preskoč späť na prvú obrazovku (WelcomeScreen)
-    router.replace("/WelcomeScreen"); // alternatívne: router.replace("/")
+  const loadUserData = async () => {
+    try {
+      const storedName = await AsyncStorage.getItem("userName");
+      const storedEmail = await AsyncStorage.getItem("userEmail");
+      
+      if (storedName) setName(storedName);
+      if (storedEmail) setEmail(storedEmail);
+    } catch (e) {
+      console.error("Chyba pri načítaní dát:", e);
+    }
   };
 
-  if (loading) {
-    return (
-      <View style={s.wrap}>
-        <ActivityIndicator size="large" color="#2e7d32" />
-      </View>
+  // 2. OPRAVENÁ FUNKCIA ODHLÁSENIA
+  const handleLogout = async () => {
+    Alert.alert(
+      "Odhlásenie",
+      "Naozaj sa chcete odhlásiť?",
+      [
+        { text: "Zrušiť", style: "cancel" },
+        { 
+          text: "Odhlásiť sa", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Vymaže všetky uložené údaje (meno, email, token)
+              await AsyncStorage.clear(); 
+              // Vráti používateľa na prihlasovaciu obrazovku
+              router.replace("/login"); 
+            } catch (e) {
+              Alert.alert("Chyba", "Nepodarilo sa odhlásiť.");
+            }
+          } 
+        },
+      ]
     );
-  }
-
-  if (!user) {
-    return (
-      <View style={s.wrap}>
-        <MaterialCommunityIcons name="account-circle" size={80} color="#2e7d32" />
-        <Text style={s.name}>Neprihlásený používateľ</Text>
-        <Text style={s.note}>Prihlásením sa ti zobrazia tvoje údaje a body.</Text>
-        <TouchableOpacity style={s.btn} onPress={() => router.push("/login")}>
-          <MaterialCommunityIcons name="login" size={18} color="#fff" />
-          <Text style={s.btnText}>Prihlásiť sa</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  };
 
   return (
-    <View style={s.wrap}>
-      <MaterialCommunityIcons name="account-circle" size={100} color="#2e7d32" />
-      <Text style={s.name}>{user.name}</Text>
-      <Text style={s.email}>{user.email}</Text>
-      <Text style={s.points}>Body: {user.body}</Text>
+    <ScrollView style={s.container}>
+      {/* VRCHNÁ ČASŤ - PROFILOVÁ KARTA */}
+      <View style={s.header}>
+        <View style={s.avatar}>
+          <MaterialCommunityIcons name="account" size={60} color="#fff" />
+        </View>
+        <Text style={s.userName}>{name}</Text>
+        <Text style={s.userEmail}>{email}</Text>
+      </View>
 
-      <TouchableOpacity style={s.btn} onPress={handleLogout}>
-        <MaterialCommunityIcons name="logout" size={18} color="#fff" />
-        <Text style={s.btnText}>Odhlásiť sa</Text>
-      </TouchableOpacity>
-    </View>
+      <View style={s.menuContainer}>
+        {/* 1. UPRAVIŤ PROFIL */}
+        <TouchableOpacity 
+          style={s.bigMenuItem} 
+          onPress={() => Alert.alert("Funkcia", "Táto funkcia bude dostupná čoskoro.")}
+        >
+          <View style={s.row}>
+            <View style={[s.iconBg, { backgroundColor: "#e8f5e9" }]}>
+              <MaterialCommunityIcons name="pencil" size={26} color="#2e7d32" />
+            </View>
+            <Text style={s.menuText}>Upraviť profil</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color="#ccc" />
+        </TouchableOpacity>
+
+        {/* 2. O APLIKÁCII */}
+        <TouchableOpacity 
+          style={s.bigMenuItem} 
+          onPress={() => Alert.alert("O aplikácii", "Odpadový Manažér v1.0\nPomáhame vám správne triediť odpad.")}
+        >
+          <View style={s.row}>
+            <View style={[s.iconBg, { backgroundColor: "#e3f2fd" }]}>
+              <MaterialCommunityIcons name="information" size={26} color="#1976d2" />
+            </View>
+            <Text style={s.menuText}>O aplikácii</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color="#ccc" />
+        </TouchableOpacity>
+
+        {/* 3. ODHLÁSIŤ SE */}
+        <TouchableOpacity 
+          style={[s.bigMenuItem, { borderBottomWidth: 0 }]} 
+          onPress={handleLogout}
+        >
+          <View style={s.row}>
+            <View style={[s.iconBg, { backgroundColor: "#ffebee" }]}>
+              <MaterialCommunityIcons name="logout" size={26} color="#d32f2f" />
+            </View>
+            <Text style={[s.menuText, { color: "#d32f2f" }]}>Odhlásiť sa</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  wrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 16 },
-  name: { fontWeight: "700", fontSize: 22, color: "#1b5e20" },
-  email: { color: "#666", fontSize: 14 },
-  points: { color: "#1b5e20", fontSize: 16, fontWeight: "600", marginTop: 4 },
-  note: { color: "#6b7", textAlign: "center" },
-  btn: {
-    marginTop: 12,
-    flexDirection: "row",
-    gap: 8,
-    backgroundColor: "#1b5e20",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
+  container: { 
+    flex: 1, 
+    backgroundColor: "#f0f2f0" 
   },
-  btnText: { color: "#fff", fontWeight: "700" },
+  header: { 
+    backgroundColor: "#fff", 
+    alignItems: "center", 
+    paddingVertical: 50, 
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    marginBottom: 30
+  },
+  avatar: { 
+    width: 100, 
+    height: 100, 
+    borderRadius: 50, 
+    backgroundColor: "#2e7d32", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    marginBottom: 15 
+  },
+  userName: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    color: "#333" 
+  },
+  userEmail: { 
+    fontSize: 16, 
+    color: "#777", 
+    marginTop: 5 
+  },
+  menuContainer: {
+    paddingHorizontal: 16,
+  },
+  bigMenuItem: { 
+    backgroundColor: "#fff",
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "space-between", 
+    paddingVertical: 20, 
+    paddingHorizontal: 20, 
+    borderRadius: 15,
+    marginBottom: 12, 
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2
+  },
+  row: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: 15 
+  },
+  iconBg: {
+    width: 45,
+    height: 45,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  menuText: { 
+    fontSize: 18, 
+    fontWeight: "600",
+    color: "#333" 
+  },
 });
