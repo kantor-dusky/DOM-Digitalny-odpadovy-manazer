@@ -1,7 +1,8 @@
 import { router } from "expo-router";
 import React, { useState } from "react";
-import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert, ImageBackground, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View, } from "react-native";
+// 1. PRIDANÝ IMPORT PRE PAMÄŤ
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
 
@@ -16,44 +17,31 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!email.includes("@")) {
-      Alert.alert("Chyba", "Neplatný email");
-      return;
-    }
-
     setLoading(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert("Úspech", "Prihlásenie bolo úspešné!");
-        
-        await AsyncStorage.setItem("token", data.access_token);
-        await AsyncStorage.setItem("user_id", String(data.user_id));
-        await AsyncStorage.setItem("name", data.name);
-        await AsyncStorage.setItem("body", String(data.body)); 
+        // 2. ULOŽENIE DÁT DO PAMÄTE
+        // data.name prichádza z tvojho api.py (Token model)
+        await AsyncStorage.setItem("userName", data.name);
+        await AsyncStorage.setItem("userEmail", email);
 
-        console.log("Body:", data.body); 
-
+        Alert.alert("Úspech", `Vitajte späť, ${data.name}!`);
         router.replace("/home");
       } else {
-        Alert.alert("Chyba", data.detail || "Prihlásenie zlyhalo. Skúste znova.");
+        Alert.alert("Chyba", data.detail || "Nesprávne údaje");
       }
     } catch (error) {
       console.error("Login error:", error);
-      Alert.alert("Chyba", "Nepodarilo sa pripojiť k serveru. Skontrolujte pripojenie.");
+      Alert.alert("Chyba", "Nepodarilo sa pripojiť k serveru.");
     } finally {
       setLoading(false);
     }
@@ -67,12 +55,18 @@ export default function LoginScreen() {
       blurRadius={3}
     >
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.container}>
+      
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+      >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.overlay}>
+
             <Text style={styles.logo}>♻️</Text>
             <Text style={styles.title}>Prihlásenie</Text>
             <Text style={styles.subtitle}>Vitajte späť!</Text>
+
             <View style={styles.form}>
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Email</Text>
@@ -84,9 +78,9 @@ export default function LoginScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                  autoComplete="email"
                 />
               </View>
+
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Heslo</Text>
                 <TextInput
@@ -99,17 +93,24 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                 />
               </View>
-              <TouchableOpacity style={styles.forgotPassword} onPress={() => Alert.alert("Info", "Funkcia obnovy hesla")}>
+
+              <TouchableOpacity 
+                style={styles.forgotPassword}
+                onPress={() => Alert.alert("Info", "Funkcia v príprave")}
+              >
                 <Text style={styles.forgotPasswordText}>Zabudli ste heslo?</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
-                activeOpacity={0.85}
                 onPress={handleLogin}
                 disabled={loading}
               >
-                <Text style={styles.buttonText}>{loading ? "Prihlasovanie..." : "Prihlásiť sa"}</Text>
+                <Text style={styles.buttonText}>
+                  {loading ? "Prihlasovanie..." : "Prihlásiť sa"}
+                </Text>
               </TouchableOpacity>
+
               <View style={styles.registerContainer}>
                 <Text style={styles.registerText}>Nemáte účet? </Text>
                 <TouchableOpacity onPress={() => router.push("/register")}>
@@ -138,9 +139,9 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "rgba(255,255,255,0.9)", paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, fontSize: 16, color: "#333" },
   forgotPassword: { alignSelf: "flex-end", marginBottom: 24 },
   forgotPasswordText: { color: "#00c853", fontSize: 14, fontWeight: "600" },
-  button: { backgroundColor: "#00c853", paddingVertical: 16, borderRadius: 12, shadowColor: "#000", shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 6, elevation: 6, marginBottom: 20 },
+  button: { backgroundColor: "#00c853", paddingVertical: 16, borderRadius: 12, elevation: 6, marginBottom: 20 },
   buttonDisabled: { backgroundColor: "#6c9a6f" },
-  buttonText: { fontSize: 18, fontWeight: "700", color: "#fff", textAlign: "center", textTransform: "uppercase", letterSpacing: 0.5 },
+  buttonText: { fontSize: 18, fontWeight: "700", color: "#fff", textAlign: "center", textTransform: "uppercase" },
   registerContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   registerText: { color: "#dfe6e9", fontSize: 15 },
   registerLink: { color: "#00c853", fontSize: 15, fontWeight: "700" },
