@@ -1,271 +1,249 @@
-import { router } from "expo-router";
-import React, { useState } from "react";
-import {
-  Alert,
-  ImageBackground,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+import React, { useEffect, useState } from "react";
+import { 
+  StyleSheet, 
+  Text, 
+  TouchableOpacity, 
+  View, 
+  ScrollView, 
+  Alert, 
+  Modal, 
+  TextInput, 
+  KeyboardAvoidingView, 
+  Platform 
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from "expo-router";
 
-// POUŽIJTE TU ISTÚ URL AKO V REGISTRÁCII
 const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
 
-export default function LoginScreen() {
+export default function Profile() {
+  const [name, setName] = useState("Načítavam...");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  
+  // Stavy pre Modal (okno na zmenu mena)
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [newNameInput, setNewNameInput] = useState("");
+  const [updating, setUpdating] = useState(false);
 
-  const handleLogin = async () => {
-    // Validácia
-    if (!email || !password) {
-      Alert.alert("Chyba", "Vyplňte všetky polia");
-      return;
-    }
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
-    if (!email.includes("@")) {
-      Alert.alert("Chyba", "Neplatný email");
-      return;
-    }
-
-    setLoading(true);
-
+  const loadUserData = async () => {
     try {
-      // API call pre prihlásenie
-      const response = await fetch(`${API_BASE_URL}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Úspešné prihlásenie
-        Alert.alert("Úspech", "Prihlásenie bolo úspešné!");
-
-        // --- STARÉ RIADKY (Pre kolegov) ---
-        await AsyncStorage.setItem("token", data.access_token);
-        await AsyncStorage.setItem("user_id", String(data.user_id));
-        await AsyncStorage.setItem("name", data.name);
-        await AsyncStorage.setItem("body", String(data.body)); 
-
-        // --- NOVÉ RIADKY (Pre tvoj Profil) ---
-        await AsyncStorage.setItem("userId", String(data.user_id)); 
-        await AsyncStorage.setItem("userEmail", email);           
-
-        console.log("Access Token:", data.access_token);
-        console.log("User ID:", data.user_id);
-        console.log("Body:", data.body); 
-
-        // Prechod na home screen
-        router.replace("/home");
-      } else {
-        // Chyba z API
-        Alert.alert("Chyba", data.detail || "Prihlásenie zlyhalo. Skúste znova.");
-      }
-    } catch (error) {
-      console.error("Login error:", error);
-      Alert.alert("Chyba", "Nepodarilo sa pripojiť k serveru. Skontrolujte pripojenie.");
-    } finally {
-      setLoading(false);
+      // Čítame kľúče, ktoré ukladá tvoj upravený Login
+      const storedName = await AsyncStorage.getItem("name");
+      const storedEmail = await AsyncStorage.getItem("userEmail");
+      
+      if (storedName) setName(storedName);
+      if (storedEmail) setEmail(storedEmail);
+    } catch (e) {
+      console.error("Chyba pri načítaní dát:", e);
     }
   };
 
-  return (
-    <ImageBackground
-      source={{ uri: "https://cdn.pixabay.com/photo/2020/04/01/09/29/recycle-4999993_1280.jpg" }}
-      style={styles.background}
-      resizeMode="cover"
-      blurRadius={3}
-    >
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+  const sendUpdateToBackend = async () => {
+    if (!newNameInput.trim()) {
+      Alert.alert("Chyba", "Meno nemôže byť prázdne.");
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const userId = await AsyncStorage.getItem("userId");
       
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"} 
-        style={styles.container}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.overlay}>
+      const response = await fetch(`${API_BASE_URL}/update-profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: parseInt(userId || "0"),
+          new_name: newNameInput.trim()
+        }),
+      });
 
-            <Text style={styles.logo}>♻️</Text>
-            <Text style={styles.title}>Prihlásenie</Text>
-            <Text style={styles.subtitle}>Vitajte späť!</Text>
+      if (response.ok) {
+        await AsyncStorage.setItem("name", newNameInput.trim());
+        setName(newNameInput.trim());
+        setModalVisible(false);
+        Alert.alert("Úspech", "Vaše meno bolo zmenené.");
+      } else {
+        Alert.alert("Chyba", "Nepodarilo sa aktualizovať meno na serveri.");
+      }
+    } catch (error) {
+      Alert.alert("Chyba", "Server nie je dostupný.");
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-            <View style={styles.form}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="vas@email.com"
-                  placeholderTextColor="#999"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                />
-              </View>
+  const handleLogout = async () => {
+    Alert.alert("Odhlásenie", "Naozaj sa chcete odhlásiť?", [
+      { text: "Zrušiť", style: "cancel" },
+      { 
+        text: "Odhlásiť sa", 
+        style: "destructive",
+        onPress: async () => {
+          await AsyncStorage.clear(); 
+          router.replace("/login"); 
+        } 
+      },
+    ]);
+  };
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Heslo</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <TouchableOpacity 
-                style={styles.forgotPassword} 
-                onPress={() => Alert.alert("Info", "Funkcia obnovy hesla")}
-              >
-                <Text style={styles.forgotPasswordText}>Zabudli ste heslo?</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                activeOpacity={0.85}
-                onPress={handleLogin}
-                disabled={loading}
-              >
-                <Text style={styles.buttonText}>
-                  {loading ? "Prihlasovanie..." : "Prihlásiť sa"}
-                </Text>
-              </TouchableOpacity>
-
-              <View style={styles.registerContainer}>
-                <Text style={styles.registerText}>Nemáte účet? </Text>
-                <TouchableOpacity onPress={() => router.push("/register")}>
-                  <Text style={styles.registerLink}>Zaregistrovať sa</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView style={s.container}>
+        {/* PROFILOVÁ KARTA */}
+        <View style={s.header}>
+          <View style={s.avatar}>
+            <MaterialCommunityIcons name="account" size={60} color="#fff" />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </ImageBackground>
+          <Text style={s.userName}>{name}</Text>
+          <Text style={s.userEmail}>{email}</Text>
+        </View>
+
+        <View style={s.menuContainer}>
+          {/* TLAČIDLO ZMENIŤ MENO */}
+          <TouchableOpacity 
+            style={s.bigMenuItem} 
+            onPress={() => {
+              setNewNameInput(name);
+              setModalVisible(true);
+            }}
+          >
+            <View style={s.row}>
+              <View style={[s.iconBg, { backgroundColor: "#e8f5e9" }]}>
+                <MaterialCommunityIcons name="pencil" size={26} color="#2e7d32" />
+              </View>
+              <Text style={s.menuText}>Zmeniť meno</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#ccc" />
+          </TouchableOpacity>
+
+          {/* O APLIKÁCII */}
+          <TouchableOpacity 
+            style={s.bigMenuItem} 
+            onPress={() => Alert.alert("O aplikácii", "Odpadový Manažér v1.0\nPomáhame vám správne triediť odpad.")}
+          >
+            <View style={s.row}>
+              <View style={[s.iconBg, { backgroundColor: "#e3f2fd" }]}>
+                <MaterialCommunityIcons name="information" size={26} color="#1976d2" />
+              </View>
+              <Text style={s.menuText}>O aplikácii</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={24} color="#ccc" />
+          </TouchableOpacity>
+
+          {/* ODHLÁSIŤ SA */}
+          <TouchableOpacity style={s.bigMenuItem} onPress={handleLogout}>
+            <View style={s.row}>
+              <View style={[s.iconBg, { backgroundColor: "#ffebee" }]}>
+                <MaterialCommunityIcons name="logout" size={26} color="#d32f2f" />
+              </View>
+              <Text style={[s.menuText, { color: "#d32f2f" }]}>Odhlásiť sa</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* MODAL PRE ZMENU MENA (FUNGUJE NA ANDROIDE AJ IOS) */}
+      <Modal
+        visible={isModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={s.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={s.modalContent}
+          >
+            <Text style={s.modalTitle}>Upraviť meno</Text>
+            <TextInput
+              style={s.input}
+              value={newNameInput}
+              onChangeText={setNewNameInput}
+              placeholder="Zadajte nové meno"
+              autoFocus={true}
+            />
+            <View style={s.modalButtons}>
+              <TouchableOpacity 
+                style={s.modalBtn} 
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={s.cancelText}>ZRUŠIŤ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[s.modalBtn, s.saveBtn]} 
+                onPress={sendUpdateToBackend}
+                disabled={updating}
+              >
+                <Text style={s.saveText}>{updating ? "..." : "ULOŽIŤ"}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  background: {
-    flex: 1,
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f0f2f0" },
+  header: { 
+    backgroundColor: "#fff", 
+    alignItems: "center", 
+    paddingVertical: 50, 
+    borderBottomLeftRadius: 30, 
+    borderBottomRightRadius: 30, 
+    elevation: 5, 
+    marginBottom: 30 
   },
-  container: {
-    flex: 1,
+  avatar: { 
+    width: 100, height: 100, borderRadius: 50, 
+    backgroundColor: "#2e7d32", justifyContent: "center", 
+    alignItems: "center", marginBottom: 15 
   },
-  scrollContent: {
-    flexGrow: 1,
+  userName: { fontSize: 24, fontWeight: "bold", color: "#333" },
+  userEmail: { fontSize: 16, color: "#777", marginTop: 5 },
+  menuContainer: { paddingHorizontal: 16 },
+  bigMenuItem: { 
+    backgroundColor: "#fff", flexDirection: "row", 
+    alignItems: "center", justifyContent: "space-between", 
+    paddingVertical: 20, paddingHorizontal: 20, 
+    borderRadius: 15, marginBottom: 12, elevation: 2 
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 32,
-    paddingVertical: 60,
+  row: { flexDirection: "row", alignItems: "center", gap: 15 },
+  iconBg: { width: 45, height: 45, borderRadius: 12, justifyContent: "center", alignItems: "center" },
+  menuText: { fontSize: 18, fontWeight: "600", color: "#333" },
+
+  // ŠTÝLY PRE MODAL (OKNO)
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
   },
-  logo: {
-    fontSize: 52,
-    marginBottom: 10,
+  modalContent: { 
+    width: '85%', 
+    backgroundColor: '#fff', 
+    borderRadius: 20, 
+    padding: 25, 
+    elevation: 10 
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "800",
-    textAlign: "center",
-    color: "#fff",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 8,
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, color: '#333' },
+  input: { 
+    borderBottomWidth: 2, 
+    borderBottomColor: '#2e7d32', 
+    fontSize: 18, 
+    paddingVertical: 8, 
+    marginBottom: 25, 
+    color: '#333' 
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#dfe6e9",
-    textAlign: "center",
-    marginBottom: 40,
-  },
-  form: {
-    width: "100%",
-    maxWidth: 400,
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  input: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    fontSize: 16,
-    color: "#333",
-  },
-  forgotPassword: {
-    alignSelf: "flex-end",
-    marginBottom: 24,
-  },
-  forgotPasswordText: {
-    color: "#00c853",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  button: {
-    backgroundColor: "#00c853",
-    paddingVertical: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 6,
-    elevation: 6,
-    marginBottom: 20,
-  },
-  buttonDisabled: {
-    backgroundColor: "#6c9a6f",
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#fff",
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  registerContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  registerText: {
-    color: "#dfe6e9",
-    fontSize: 15,
-  },
-  registerLink: {
-    color: "#00c853",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
+  modalBtn: { paddingHorizontal: 15, paddingVertical: 10, marginLeft: 10 },
+  saveBtn: { backgroundColor: '#e8f5e9', borderRadius: 8 },
+  cancelText: { color: '#777', fontWeight: 'bold' },
+  saveText: { color: '#2e7d32', fontWeight: 'bold' }
 });
