@@ -1,0 +1,4 @@
+Oprava profilu:
+updatni si login.tsx
+updatni si profile.tsx
+stiahni knižnicu : npx expo install @react-native-async-storage/async-storage
