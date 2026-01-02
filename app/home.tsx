@@ -1,10 +1,10 @@
 import { MaterialCommunityIcons as Icon, MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SemiCircleProgress from "../components/SemiCircleProgress";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const API_BASE_URL = "https://reiterativ-acicularly-arely.ngrok-free.dev";
 
@@ -85,7 +85,7 @@ useEffect(() => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: brand.bg }} edges={["bottom"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: brand.bg }} edges={["left", "right"]}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
