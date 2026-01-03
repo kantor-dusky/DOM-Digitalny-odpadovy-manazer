@@ -29,9 +29,19 @@ class UserRegister(BaseModel):
     email: str
     password: str
 
+
+class CollectionReminder(BaseModel):
+    user_id: int
+    date: str  # Formát "YYYY-MM-DD"
+    waste_type: str  # Napr. "Plasty", "Papier", "Komunál"
+
 class UserLogin(BaseModel):
     email: str
     password: str
+
+class ProfileUpdate(BaseModel):
+    user_id: int
+    new_name: str    
 
 class Token(BaseModel):
     access_token: str
@@ -123,6 +133,26 @@ def create_users_table():
     finally:
         if conn:
             conn.close()
+
+def create_reminders_table():
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS reminders (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    date DATE NOT NULL,
+                    waste_type VARCHAR(50),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.commit()
+    finally:
+        conn.close()
+
+# Zavolaj ju pod ostatnými create_table funkciami
+create_reminders_table()            
 
 # Vytvor tabuľku pri štarte
 try:
@@ -470,3 +500,173 @@ async def classify(request: Request, file: UploadFile | None = File(None)):
             print(f"⚠️ Chyba pri zápise štatistiky: {e}")
 
     return {"code": code, "result": result}
+
+@app.get("/user-stats/{user_id}")
+async def get_user_stats(user_id: int):
+    """Vráti štatistiky vrátane počtov podľa materiálov pre odznaky"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # 1. Získame všetky záznamy o recyklácii
+            cur.execute("""
+                SELECT typ_odpadu_id, pocet_recyklacii 
+                FROM user_recyklacia 
+                WHERE user_id = %s
+            """, (user_id,))
+            rows = cur.fetchall()
+            
+            total_count = 0
+            total_co2 = 0.0
+            plastic_count = 0
+            paper_count = 0
+            glass_count = 0
+            
+            for code, count in rows:
+                total_count += count
+                
+                # --- LOGIKA PRE PLASTY ---
+                if (1 <= code <= 7) or code == 19:
+                    plastic_count += count
+                    total_co2 += count * (0.04 * 1.5)
+                
+                # --- LOGIKA PRE PAPIER ---
+                elif 20 <= code <= 22:
+                    paper_count += count
+                    total_co2 += count * (0.10 * 1.0)
+                
+                # --- LOGIKA PRE SKLO ---
+                elif 70 <= code <= 72:
+                    glass_count += count
+                    total_co2 += count * (0.35 * 0.3)
+                
+                # --- LOGIKA PRE KOVY ---
+                elif code == 40 or code == 41:
+                    total_co2 += count * (0.02 * 9.0)
+                
+                # --- OSTATNÉ ---
+                else:
+                    total_co2 += count * (0.05 * 0.5)
+
+            # 2. Najčastejší odpad
+            cur.execute("""
+                SELECT h.vysledok 
+                FROM user_recyklacia r 
+                JOIN hodnoty h ON r.typ_odpadu_id = h.cislo 
+                WHERE r.user_id = %s 
+                ORDER BY r.pocet_recyklacii DESC LIMIT 1
+            """, (user_id,))
+            most_common_row = cur.fetchone()
+            most_common = most_common_row[0] if most_common_row else "Žiadny"
+
+            # VRACIAME ROZŠÍRENÝ OBJEKT
+            return {
+                "total_recycled": total_count,
+                "most_common": most_common,
+                "co2_saved": round(total_co2, 2),
+                "plastic_count": plastic_count,
+                "paper_count": paper_count,
+                "glass_count": glass_count
+            }
+    except Exception as e:
+        print(f"❌ Chyba pri výpočte štatistík: {e}")
+        return {
+            "total_recycled": 0, 
+            "most_common": "N/A", 
+            "co2_saved": 0,
+            "plastic_count": 0,
+            "paper_count": 0,
+            "glass_count": 0
+        }
+    finally:
+        if conn:
+            conn.close()
+
+@app.delete("/reset-stats/{user_id}")
+def reset_stats(user_id: int):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # 1. Vymažeme históriu recyklácie
+            cur.execute("DELETE FROM user_recyklacia WHERE user_id = %s", (user_id,))
+            # 2. Vynulujeme body v hlavnej tabuľke
+            cur.execute("UPDATE users SET body = 0 WHERE id = %s", (user_id,))
+            conn.commit()
+            return {"message": "Štatistiky boli úspešne vynulované"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/user-badges/{user_id}")
+async def get_user_badges(user_id: int):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Získame dáta o recyklácii
+            cur.execute("SELECT SUM(pocet_recyklacii) FROM user_recyklacia WHERE user_id = %s", (user_id,))
+            total = cur.fetchone()[0] or 0
+            
+            # Definícia odznakov a podmienok
+            all_badges = [
+                {"id": "beginner", "name": "Zelenáč", "desc": "Zrecykluj prvý kus odpadu", "goal": 1, "icon": "leaf"},
+                {"id": "eco_warrior", "name": "Eko Bojovník", "desc": "Zrecykluj 50 kusov", "goal": 50, "icon": "shield"},
+                {"id": "co2_hero", "name": "CO2 Hrdina", "desc": "Ušetri 5kg CO2", "goal": 5, "type": "co2", "icon": "cloud"},
+                {"id": "plastic_master", "name": "Plastový Kráľ", "desc": "Zrecykluj 20 plastov", "goal": 20, "type": "plastic", "icon": "water"}
+            ]
+            
+            # Tu by sme mohli pridať logiku pre kontrolu každého odznaku
+            # Pre jednoduchosť teraz vrátime zoznam s informáciou o progrese
+            for b in all_badges:
+                b["unlocked"] = total >= b["goal"]
+                b["current_progress"] = total # Tu by si mohol filtrovať podľa typu (plastic/co2)
+                
+            return all_badges
+    finally:
+        conn.close()
+
+
+@app.post("/add-reminder")
+def add_reminder(data: CollectionReminder):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO reminders (user_id, date, waste_type) VALUES (%s, %s, %s)",
+                (data.user_id, data.date, data.waste_type)
+            )
+            conn.commit()
+            return {"message": "Pripomienka uložená"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/get-reminders/{user_id}")
+def get_reminders(user_id: int):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT date, waste_type FROM reminders WHERE user_id = %s", (user_id,))
+            rows = cur.fetchall()
+            # Vrátime to vo formáte, ktorému rozumie knižnica kalendára
+            return {str(r[0]): {"marked": True, "dotColor": "green", "waste": r[1]} for r in rows}
+    finally:
+        conn.close()
+
+@app.put("/update-profile")
+def update_profile(data: ProfileUpdate): # Používame model pre validáciu
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Dôležité: skontroluj, či sa tvoja tabuľka volá 'users' a stĺpce 'name' a 'id'
+            cur.execute("UPDATE users SET name = %s WHERE id = %s", (data.new_name, data.user_id))
+            if cur.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Používateľ nenájdený")
+            conn.commit()
+            return {"message": "Meno zmenené", "new_name": data.new_name}
+    except Exception as e:
+        print(f"Chyba na backende: {e}") # Toto uvidíš v termináli Pythonu
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()        
